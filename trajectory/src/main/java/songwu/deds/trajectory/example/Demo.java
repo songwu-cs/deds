@@ -14,7 +14,7 @@ import java.text.ParseException;
 import java.util.*;
 
 public class Demo {
-    public static void main(String[] args) throws ParseException, IOException, NoSuchFieldException, IllegalAccessException {
+    public static void main(String[] args) throws ParseException, IOException, NoSuchFieldException, IllegalAccessException, InterruptedException {
         File2TimestampedPointT input = new File2TimestampedPointT();
         input.filePath("C:\\Users\\TJUer\\Desktop\\ais_data\\ais1209963_four_columns_used_avg_clean_position_speed_xy.csv")
                 .splitter(",")
@@ -28,23 +28,24 @@ public class Demo {
         List<TimeStampedPointT> trajs = input.go();
 
         Collections.shuffle(trajs);
-        List<TimeStampedPointT> queries = trajs.subList(0, 2);
+        List<TimeStampedPointT> queries = trajs.subList(0, 67);
 
         List<SimilarityMeasure<TimeStampedPoint, TimeStampedPointT>> measures = new ArrayList<>();
         measures.add(new DynamicTimeWarping<>());
         measures.add(new Frechet<>());
 
-        KNN<TimeStampedPoint, TimeStampedPointT> knn = new KNN<>(10);
+        KNN<TimeStampedPoint, TimeStampedPointT> knn = new KNN<>(20);
         knn.setSimMeasures(measures);
         knn.setQueries(queries);
         knn.setDatabase(trajs);
+        knn.setNumberThreads(4);
 
         List<KNN.KNNelement> answer = knn.go();
 
         ToCSV<KNN.KNNelement> toCSV = new ToCSV<>();
         toCSV.setSplitter(",")
                 .setHeader("query,neighbor,measure_name,rank,distance")
-                .setOutputPath("C:\\Users\\TJUer\\Desktop\\ais_data\\ais1209963_four_columns_used_avg_clean_position_speed_xy_knn_2_10.csv")
+                .setOutputPath("C:\\Users\\TJUer\\Desktop\\ais_data\\ais1209963_four_columns_used_avg_clean_position_speed_xy_knn_67_20.csv")
                 .setLines(answer).go();
     }
 }
