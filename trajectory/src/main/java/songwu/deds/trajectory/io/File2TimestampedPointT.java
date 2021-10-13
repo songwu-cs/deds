@@ -7,7 +7,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.sql.Time;
 import java.text.ParseException;
 import java.util.*;
 
@@ -68,6 +67,9 @@ public class File2TimestampedPointT {
         return this;
     }
 
+    public void extra(TimeStampedPoint point, String[] parts){
+    }
+
     public List<TimeStampedPointT> go() throws IOException, ParseException {
         List<String> lines = Files.readAllLines(Paths.get(file_path));
         List<TimeStampedPointT> trajectories = new ArrayList<>();
@@ -87,6 +89,7 @@ public class File2TimestampedPointT {
             point.latitide(Double.parseDouble(parts[Latitude]));
             point.longitude(Double.parseDouble(parts[Longitude]));
             point.timestamp_string(parts[Timestamp]);
+            extra(point, parts);
             trajectories.get(trajectories.size() - 1).addPoint(point);
         }
 
