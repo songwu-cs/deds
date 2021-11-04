@@ -190,7 +190,7 @@ public class DenoiseTimeStampedPointT {
                         .ratioDuration());
             }
 
-            System.out.println(query.trajId() + " : " + query.size() + " --> " + denoised.size());
+//            System.out.println(query.trajId() + " : " + query.size() + " --> " + denoised.size());
         }
     }
 
