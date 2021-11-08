@@ -52,8 +52,6 @@ public class Whole2Sub {
         this.splitter = splitter; return this;
     }
 
-    //C:\Users\TJUer\Desktop\dk_csv_apr2021_coastline\ais_20210926_deanchorage_1km_subtrajectory.csv
-    //C:\Users\TJUer\Desktop\dk_csv_apr2021_coastline\ais_20210926_deanchorage_1km.csv
     public void go() throws IOException{
         try(PrintWriter writer = new PrintWriter(destFile)){
             List<String> lines = Files.readAllLines(Paths.get(sourceFile));
@@ -89,11 +87,11 @@ public class Whole2Sub {
 
     public static void main(String[] args) throws IOException {
         Whole2Sub whole2Sub = new Whole2Sub()
-                .setSourceFile("C:\\Users\\TJUer\\Desktop\\1.txt")
-                .setDestFile("C:\\Users\\TJUer\\Desktop\\2.txt")
+                .setSourceFile("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_coastline\\ais_20210926_deanchorage_10km.csv")
+                .setDestFile("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_coastline\\ais_20210926_deanchorage_10km_subtrajectory.csv")
                 .setMajorIndex(0)
-                .setMinorIndex(1)
-                .setGoodValue("good");
+                .setMinorIndex(6)
+                .setGoodValue("t");
         whole2Sub.go();
     }
 }
