@@ -24,6 +24,16 @@ public class TimeStampedPointT implements Trajectory<TimeStampedPoint>{
         return speed_total / time_total;
     }
 
+    public double deviationSpeed(int index, int history, double meanSpeed){
+        double numerator = 0;
+        double denominator = 0;
+        for(int k = index - history + 1; k <= index; k++){
+            numerator += Math.pow(getUnit(k).getEucSpeed() - meanSpeed ,2) * getUnit(k).getTimeGap();
+            denominator += getUnit(k).getTimeGap();
+        }
+        return Math.sqrt(numerator / denominator);
+    }
+
     public double avgX(int index, int history){
         double x_total = 0;
         for(int k = index - history + 1; k <= index; k++){

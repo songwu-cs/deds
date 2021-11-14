@@ -1,6 +1,7 @@
 package songwu.deds.trajectory.data;
 
 public class CriticalPointInterval {
+    private String id0;
     private String mid;
     private String id;
     private String type;
@@ -11,8 +12,16 @@ public class CriticalPointInterval {
         return id;
     }
 
+    public String getId0() {
+        return id0;
+    }
+
     public CriticalPointInterval setId(String id) {
         this.id = id; return this;
+    }
+
+    public CriticalPointInterval setId0(String id0) {
+        this.id0 = id0; return this;
     }
 
     public String getMid(){

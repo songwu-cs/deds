@@ -31,5 +31,10 @@ public class TestData {
     public static void main(String[] args) {
 //        test_geography_angle();
 //        test_signed_turn();
+        for(int i = 1; i <= 10; i++){
+            System.out.println(i);
+            if(i == 6)
+                i++;
+        }
     }
 }
