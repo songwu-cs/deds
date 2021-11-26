@@ -43,7 +43,7 @@ public class AnchoragePoint {
 
     public static void main(String[] args) throws IOException {
         String sourcePath = "C:\\Users\\TJUer\\Desktop\\GlobalFishingWatch\\anchorageDenmark.csv";
-        String outputPath = "C:\\Users\\TJUer\\Desktop\\GlobalFishingWatch\\anchorageDenmark_UnionFind_4km.csv";
+        String outputPath = "C:\\Users\\TJUer\\Desktop\\GlobalFishingWatch\\anchorageDenmark_UnionFind_1km.csv";
         try(PrintWriter writer = new PrintWriter(outputPath)){
             List<String> lines = Files.readAllLines(Paths.get(sourcePath));
             List<AnchoragePoint> points = new ArrayList<>();
@@ -56,7 +56,7 @@ public class AnchoragePoint {
             UnionFind unionFind = new UnionFind(points.size());
             for(AnchoragePoint p1 : points){
                 for(AnchoragePoint p2 : points){
-                    if(Math.hypot(p1.getX() - p2.getX(), p1.getY() - p2.getY()) < 4000){
+                    if(Math.hypot(p1.getX() - p2.getX(), p1.getY() - p2.getY()) < 1000){
                         unionFind.union(p1.getUnionId(), p2.getUnionId());
                     }
                 }

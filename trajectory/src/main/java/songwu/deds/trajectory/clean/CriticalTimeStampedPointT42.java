@@ -4,7 +4,7 @@ import songwu.deds.trajectory.algo.SmallestEnclosingCircle;
 import songwu.deds.trajectory.data.*;
 
 import java.util.*;
-
+//区分加减速，stop和slow-motion使用不同阈值，速度变化采用alpha
 public class CriticalTimeStampedPointT42 {
     private int gap;
     private int history;

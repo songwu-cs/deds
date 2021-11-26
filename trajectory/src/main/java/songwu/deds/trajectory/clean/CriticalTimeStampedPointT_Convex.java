@@ -4,12 +4,12 @@ import songwu.deds.trajectory.data.*;
 
 import java.util.*;
 
-//不区分加减速，stop和slow-motion使用不同阈值，速度变化采用z-score
-public class CriticalTimeStampedPointT_Song {
+//不区分加减速，stop和slow-motion使用不同阈值，速度变化采用alpha
+public class CriticalTimeStampedPointT_Convex {
     private int gap;
     private int history;
-    private double sigma_times_threshold;
     private double smooth_threshold;
+    private double speed_alpha;
     private double speed_min;
     private double speed_slow_motion;
 
@@ -72,35 +72,35 @@ public class CriticalTimeStampedPointT_Song {
         public String getId(){ return id; }
     }
 
-    public CriticalTimeStampedPointT_Song setGap(int gap) {
+    public CriticalTimeStampedPointT_Convex setGap(int gap) {
         this.gap = gap; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setSpeed_min(double speed_min) {
+    public CriticalTimeStampedPointT_Convex setSpeed_min(double speed_min) {
         this.speed_min = speed_min; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setSpeed_slow_motion(double speed_slow_motion) {
+    public CriticalTimeStampedPointT_Convex setSpeed_slow_motion(double speed_slow_motion) {
         this.speed_slow_motion = speed_slow_motion; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setHistory(int history) {
+    public CriticalTimeStampedPointT_Convex setHistory(int history) {
         this.history = history; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setSmoothThreshold(double smooth_threshold) {
+    public CriticalTimeStampedPointT_Convex setSmoothThreshold(double smooth_threshold) {
         this.smooth_threshold = smooth_threshold; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setSigmaTimeThreshold(double sigmaTimeThreshold) {
-        this.sigma_times_threshold = sigmaTimeThreshold; return this;
+    public CriticalTimeStampedPointT_Convex setSpeedAlpha(double speed_alpha) {
+        this.speed_alpha = speed_alpha; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setNumberThreads(int number_threads) {
+    public CriticalTimeStampedPointT_Convex setNumberThreads(int number_threads) {
         this.number_threads = number_threads; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setTrajs(List<TimeStampedPointT> trajs) {
+    public CriticalTimeStampedPointT_Convex setTrajs(List<TimeStampedPointT> trajs) {
         this.trajs = trajs; return this;
     }
 
@@ -205,11 +205,11 @@ public class CriticalTimeStampedPointT_Song {
 
                 //speed-change
                 if(_s > speed_min && avg_speed > speed_min){
-                    double times = Math.abs((_s - avg_speed) / deviation_speed);
-                    if(times > sigma_times_threshold && (! speedchange_flag)){
+                    double variation = Math.abs((_s - avg_speed) / avg_speed);
+                    if(variation > speed_alpha && (! speedchange_flag)){
                         critical.addPoint(new CriticalPoint().setType("speedChangeStart").copy(current));
                         speedchange_flag = true;
-                    }else if(times < sigma_times_threshold && speedchange_flag){
+                    }else if(variation < speed_alpha && speedchange_flag){
                         critical.addPoint(new CriticalPoint().setType("speedChangeEnd").copy(current));
                         speedchange_flag = false;
                     }

@@ -52,7 +52,7 @@ public class Demo {
     }
     public static void denoise() throws IOException, InterruptedException, ParseException {
         File2TimestampedPointT input = new File2TimestampedPointT();
-        input.filePath("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021\\ais_20210926_filterTooShort.csv")
+        input.filePath("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km.csv")
                 .splitter(",")
                 .withHeader(true)
                 .trajId(0)
@@ -69,8 +69,8 @@ public class Demo {
                 .setTurnThreshold(5).setSpeedAlpha(0.25);
         List<TimeStampedPointT> denoised = denoiser.go();
 
-        try(PrintWriter writer = new PrintWriter("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021\\ais_20210926_filterTooShort_Denoised.csv");
-                PrintWriter writerRatio = new PrintWriter("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021\\ais_20210926_filterTooShort_DenoisedRatio.csv")){
+        try(PrintWriter writer = new PrintWriter("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km_Denoised.csv");
+                PrintWriter writerRatio = new PrintWriter("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km_DenoisedRatio.csv")){
 
             writer.write("mmsi,t,longitude,latitude,x,y,time_gap,distance_gap,euc_speed,signed_turn,bearing,pause,speed_change,turn\n");
             for(TimeStampedPointT traj : denoised){
@@ -313,12 +313,71 @@ public class Demo {
             }
         }
     }
+    public static void criticalConvex() throws InterruptedException, IOException, ParseException{
+        File2TimestampedPointT input = new File2TimestampedPointT();
+        input.filePath("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km.csv")
+                .splitter(",")
+                .withHeader(true)
+                .trajId(0)
+                .timestamp(1)
+                .longitude(2)
+                .latitude(3)
+                .x(4)
+                .y(5);
+        List<TimeStampedPointT> trajs = input.go();
+
+        DenoiseTimeStampedPointT denoiser = new DenoiseTimeStampedPointT();
+        denoiser.setAngleThreshold(160).setHistory(7).setNumberThreads(4)
+                .setSpeedMax(50).setSpeenMin(1).setTrajs(trajs)
+                .setTurnThreshold(5).setSpeedAlpha(0.25);
+        List<TimeStampedPointT> denoised = denoiser.go();
+
+        CriticalTimeStampedPointT_Convex criticaler = new CriticalTimeStampedPointT_Convex();
+        criticaler.setHistory(7).setGap(1800).setNumberThreads(4)
+                .setSmoothThreshold(10).setSpeedAlpha(0.25)
+                .setSpeed_min(1).setSpeed_slow_motion(5).setTrajs(denoised);
+        List<CriticalPointT> criticaled = criticaler.go();
+
+        try(PrintWriter writer = new PrintWriter("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km_CriticalConvex.csv");
+            PrintWriter writerRatio = new PrintWriter("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km_CriticalConvexRatio.csv");
+            PrintWriter writerInterval = new PrintWriter("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km_CriticalConvexIntervals.csv")){
+
+            writer.write("id,mmsi,t,longitude,latitude,x,y,euc_speed,type\n");
+            for(CriticalPointT traj : criticaled){
+                for(CriticalPoint p : traj.getAllUnits()){
+                    writer.write(traj.trajId() + ",");
+                    writer.write(traj.trajId().split("-")[0] + ",");
+                    writer.write(p.getTimestamp() + ",");
+                    writer.write(p.getLongitude() + ",");
+                    writer.write(p.getLatitude() + ",");
+                    writer.write(p.getX() + ",");
+                    writer.write(p.getY() + ",");
+                    writer.write(p.getEucSpeed() + ",");
+                    writer.write(p.getType() + "\n");
+                }
+            }
+
+            writerRatio.write("id,mmsi,previous,now,ratio\n");
+            PriorityQueue<CriticalTimeStampedPointT_Convex.CriticalRatio> queue = criticaler.getCriticalRatio();
+            while (queue.size() > 0){
+                CriticalTimeStampedPointT_Convex.CriticalRatio top = queue.poll();
+                writerRatio.write(top.getId() + "," + top.getMmsi() + "," + top.getPrevious() + "," + top.getNow() + "," + top.getRatio() + "\n");
+            }
+
+            writerInterval.write("id0,mmsi,type,startTime,endTime,id\n");
+            List<CriticalPointInterval> intervals = criticaler.getCriticalIntervals();
+            for(CriticalPointInterval interval : intervals){
+                writerInterval.write(interval.getId0() + "," + interval.getMid() + "," + interval.getType() + "," + interval.getStartTime() + "," + interval.getEndTime() + "," + interval.getId() + "\n");
+            }
+        }
+    }
 
     public static void main(String[] args) throws ParseException, IOException, NoSuchFieldException, IllegalAccessException, InterruptedException {
 //        denoise();
 //        denoiseSong();
 //        critical();
 //        critical42();
-        criticalSong();
+//        criticalSong();
+        criticalConvex();
     }
 }

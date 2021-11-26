@@ -8,7 +8,7 @@ import songwu.deds.trajectory.data.TimeStampedPointT;
 
 import java.util.*;
 import java.util.List;
-
+//不区分加减速，stop和slow-motion使用相同阈值，速度变化采用alpha
 public class CriticalTimeStampedPointT {
     private int gap;
     private int history;
