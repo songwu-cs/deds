@@ -2,6 +2,7 @@ package songwu.deds.trajectory.clean;
 
 import songwu.deds.trajectory.data.TimeStampedPoint;
 import songwu.deds.trajectory.data.TimeStampedPointT;
+import songwu.deds.trajectory.data.UniversalRatio;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,77 +21,7 @@ public class DenoiseTimeStampedPointT {
     private double speed_alpha;
     private List<TimeStampedPointT> trajs = new ArrayList<>();
     private List<TimeStampedPointT> answer = new ArrayList<>();
-    private PriorityQueue<NoiseProportion> queue = new PriorityQueue<>(Comparator.comparingDouble(NoiseProportion::getRatio));
-
-    public class NoiseProportion{
-        private String mmsi;
-        private int previous;
-        private int now;
-        private double ratio;
-        private double previous_duration;
-        private double now_duration;
-        private double ratio_duration;
-
-        public NoiseProportion mmsi(String mmsi){
-            this.mmsi = mmsi;
-            return this;
-        }
-
-        public NoiseProportion previous(int previous){
-            this.previous = previous;
-            return this;
-        }
-
-        public NoiseProportion now(int now){
-            this.now = now;
-            return this;
-        }
-
-        public NoiseProportion ratio(){
-            this.ratio = 1.0 * now / previous;
-            return this;
-        }
-
-        public NoiseProportion previousDuration(double previous_duration) {
-            this.previous_duration = previous_duration; return this;
-        }
-
-        public NoiseProportion nowDuration(double now_duration) {
-            this.now_duration = now_duration; return this;
-        }
-
-        public NoiseProportion ratioDuration() {
-            this.ratio_duration = now_duration / previous_duration; return this;
-        }
-
-        public double getRatio() {
-            return ratio;
-        }
-
-        public int getPrevious() {
-            return previous;
-        }
-
-        public int getNow() {
-            return now;
-        }
-
-        public String getMmsi() {
-            return mmsi;
-        }
-
-        public double getPreviousDuration() {
-            return previous_duration;
-        }
-
-        public double getRatioDuration() {
-            return ratio_duration;
-        }
-
-        public double getNowDuration() {
-            return now_duration;
-        }
-    }
+    private PriorityQueue<UniversalRatio> queue = new PriorityQueue<>(Comparator.comparingDouble(UniversalRatio::getRatio));
 
     public DenoiseTimeStampedPointT setHistory(int history) {
         this.history = history; return this;
@@ -172,25 +103,20 @@ public class DenoiseTimeStampedPointT {
                 }
 
                 if(p.getEucSpeed() < speen_min)
-                    p.pause(true);
-                if(Math.abs(p.getEucSpeed() - last.getEucSpeed()) / p.getEucSpeed() > speed_alpha)
-                    p.speedChange(true);
+                    p.setPaused(true);
+                if(Math.abs(p.getEucSpeed() - last.getEucSpeed()) / last.getEucSpeed() > speed_alpha)
+                    p.setSpeedchanged(true);
                 if(Math.abs(p.getSignedTurn()) > turn_threshold)
-                    p.turn(true);
+                    p.setTurned(true);
                 denoised.addPoint(p);
                 number_of_good++;
             }
 
             synchronized (this){
                 answer.add(denoised);
-                queue.add(new NoiseProportion().mmsi(query.trajId())
-                        .previous(query.size()).now(denoised.size()).ratio()
-                        .previousDuration(TimeStampedPoint.duration(query.getUnit(0), query.getUnit(query.size() - 1)))
-                        .nowDuration(TimeStampedPoint.duration(denoised.getUnit(0), denoised.getUnit(denoised.size() - 1)))
-                        .ratioDuration());
+                queue.add(new UniversalRatio().id(query.trajId())
+                        .previous(query.size()).now(denoised.size()).ratio());
             }
-
-//            System.out.println(query.trajId() + " : " + query.size() + " --> " + denoised.size());
         }
     }
 
@@ -211,7 +137,7 @@ public class DenoiseTimeStampedPointT {
         return answer;
     }
 
-    public PriorityQueue<NoiseProportion> getNoiseRatio(){
+    public PriorityQueue<UniversalRatio> getNoiseRatio(){
         return queue;
     }
 }

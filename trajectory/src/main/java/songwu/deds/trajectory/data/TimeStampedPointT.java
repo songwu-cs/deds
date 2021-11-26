@@ -1,6 +1,5 @@
 package songwu.deds.trajectory.data;
 
-import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -12,26 +11,6 @@ public class TimeStampedPointT implements Trajectory<TimeStampedPoint>{
     public TimeStampedPointT(String id) {
         points = new ArrayList<>();
         this.id = id;
-    }
-
-    public double avgSpeed(int index, int history){
-        double speed_total = 0;
-        double time_total = 0;
-        for(int k = index - history + 1; k <= index; k++){
-            speed_total += getUnit(k).getEucSpeed() * getUnit(k).getTimeGap();
-            time_total += getUnit(k).getTimeGap();
-        }
-        return speed_total / time_total;
-    }
-
-    public double deviationSpeed(int index, int history, double meanSpeed){
-        double numerator = 0;
-        double denominator = 0;
-        for(int k = index - history + 1; k <= index; k++){
-            numerator += Math.pow(getUnit(k).getEucSpeed() - meanSpeed ,2) * getUnit(k).getTimeGap();
-            denominator += getUnit(k).getTimeGap();
-        }
-        return Math.sqrt(numerator / denominator);
     }
 
     public double avgX(int index, int history){
@@ -64,6 +43,26 @@ public class TimeStampedPointT implements Trajectory<TimeStampedPoint>{
             latitude_total += getUnit(k).getLatitude();
         }
         return latitude_total / history;
+    }
+
+    public double avgSpeed(int index, int history){
+        double speed_total = 0;
+        double time_total = 0;
+        for(int k = index - history + 1; k <= index; k++){
+            speed_total += getUnit(k).getEucSpeed() * getUnit(k).getTimeGap();
+            time_total += getUnit(k).getTimeGap();
+        }
+        return speed_total / time_total;
+    }
+
+    public double deviationSpeed(int index, int history, double meanSpeed){
+        double numerator = 0;
+        double denominator = 0;
+        for(int k = index - history + 1; k <= index; k++){
+            numerator += Math.pow(getUnit(k).getEucSpeed() - meanSpeed ,2) * getUnit(k).getTimeGap();
+            denominator += getUnit(k).getTimeGap();
+        }
+        return Math.sqrt(numerator / denominator);
     }
 
     public void addPoint(TimeStampedPoint point){

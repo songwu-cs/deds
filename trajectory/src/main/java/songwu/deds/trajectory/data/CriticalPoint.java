@@ -1,13 +1,11 @@
 package songwu.deds.trajectory.data;
 
-public class CriticalPoint implements TrajectoryUnit<CriticalPoint>{
+public class CriticalPoint implements TrajectoryUnit<CriticalPoint> {
     private String timestamp;
     private double longitude;
     private double latitude;
     private double x;
     private double y;
-    private double euc_speed;
-    private double total_duration;
     private String type;
     private long order;
 
@@ -51,22 +49,6 @@ public class CriticalPoint implements TrajectoryUnit<CriticalPoint>{
         this.y = y; return this;
     }
 
-    public double getEucSpeed() {
-        return euc_speed;
-    }
-
-    public CriticalPoint setEucSpeed(double euc_speed) {
-        this.euc_speed = euc_speed; return this;
-    }
-
-    public double getTotalDuration() {
-        return total_duration;
-    }
-
-    public CriticalPoint setTotalDuration(double total_duration) {
-        this.total_duration = total_duration; return this;
-    }
-
     public long getOrder(){
         return order;
     }
@@ -90,13 +72,7 @@ public class CriticalPoint implements TrajectoryUnit<CriticalPoint>{
         this.latitude = point.getLatitude();
         this.x = point.getX();
         this.y = point.getY();
-        this.euc_speed = point.getEucSpeed();
-        this.order = point.getTimestampLong();
         return this;
     }
 
-    @Override
-    public double distance(CriticalPoint criticalPoint) {
-        return 0;
-    }
 }

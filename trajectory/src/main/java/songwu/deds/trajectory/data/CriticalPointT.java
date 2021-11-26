@@ -1,11 +1,10 @@
 package songwu.deds.trajectory.data;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+import java.util.*;
 
-public class CriticalPointT implements Trajectory<CriticalPoint>{
+public class CriticalPointT implements Trajectory<CriticalPoint> {
     private List<CriticalPoint> points;
     private String id;
 
@@ -49,5 +48,22 @@ public class CriticalPointT implements Trajectory<CriticalPoint>{
     @Override
     public List<CriticalPoint> getAllUnits() {
         return points;
+    }
+
+    public static void saveCriticalPointT(String outputPath, List<CriticalPointT> ts) throws FileNotFoundException {
+        try(PrintWriter writer = new PrintWriter(outputPath)){
+            writer.write("id,t,longitude,latitude,x,y,type\n");
+            for(CriticalPointT traj : ts){
+                for(CriticalPoint p : traj.getAllUnits()){
+                    writer.write(traj.trajId() + ",");
+                    writer.write(p.getTimestamp() + ",");
+                    writer.write(p.getLongitude() + ",");
+                    writer.write(p.getLatitude() + ",");
+                    writer.write(p.getX() + ",");
+                    writer.write(p.getY() + ",");
+                    writer.write(p.getType() + "\n");
+                }
+            }
+        }
     }
 }

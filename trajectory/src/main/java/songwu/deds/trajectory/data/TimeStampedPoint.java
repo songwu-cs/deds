@@ -1,19 +1,15 @@
 package songwu.deds.trajectory.data;
 
 import songwu.deds.trajectory.similarity.Euclidean;
+import songwu.deds.trajectory.similarity.Manhattan;
 
 import java.sql.Time;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
-public class TimeStampedPoint implements TrajectoryUnit<TimeStampedPoint>, Euclidean<TimeStampedPoint> {
+public class TimeStampedPoint implements TrajectoryUnit<TimeStampedPoint>, Euclidean, Manhattan {
     private static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    public static void setTimestampFormat(String format){
-        formatter = new SimpleDateFormat(format);
-    }
 
     private String timestamp_string;
     private Date timestamp;
@@ -21,18 +17,28 @@ public class TimeStampedPoint implements TrajectoryUnit<TimeStampedPoint>, Eucli
     private double latitude;
     private double x;
     private double y;
-
     private double time_gap;
     private double distance_gap;
     private double euc_speed;
     private double bearing;
     private double signed_turn;
+    private boolean turned;
+    private boolean speedchanged;
+    private boolean paused;
 
-    private boolean pause;
-    private boolean speed_change;
-    private boolean turn;
+    public TimeStampedPoint(){
+    }
 
-//    in hours
+    public TimeStampedPoint(double x, double y){
+        this.x = x;
+        this.y = y;
+    }
+
+    public static void setTimestampFormat(String format){
+        formatter = new SimpleDateFormat(format);
+    }
+
+    //    in hours
     public static double duration(TimeStampedPoint from, TimeStampedPoint to){
         long start = from.timestamp.getTime();
         long end = to.timestamp.getTime();
@@ -42,7 +48,7 @@ public class TimeStampedPoint implements TrajectoryUnit<TimeStampedPoint>, Eucli
     public static String mid_timestamp(TimeStampedPoint from, TimeStampedPoint to){
         long start = from.timestamp.getTime();
         long end = to.timestamp.getTime();
-        Date date = new Date((start + end) / 2);
+        Date date = new Date ((start + end) / 2);
         return formatter.format(date);
     }
 
@@ -68,27 +74,6 @@ public class TimeStampedPoint implements TrajectoryUnit<TimeStampedPoint>, Eucli
         return signed_turn;
     }
 
-    public TimeStampedPoint(double x, double y){
-        this.x = x;
-        this.y = y;
-    }
-
-    public TimeStampedPoint timestamp_string(String timestamp_string) throws ParseException {
-        this.timestamp_string = timestamp_string;
-        if(this.timestamp_string != null){
-            this.timestamp = formatter.parse(this.timestamp_string);
-        }
-        return this;
-    }
-
-    public TimeStampedPoint longitude(double longitude){
-        this.longitude = longitude; return this;
-    }
-
-    public TimeStampedPoint latitide(double latitude){
-        this.latitude = latitude; return this;
-    }
-
     public TimeStampedPoint signed_turn(double signed_turn){
         this.signed_turn = signed_turn; return this;
     }
@@ -109,34 +94,10 @@ public class TimeStampedPoint implements TrajectoryUnit<TimeStampedPoint>, Eucli
         this.time_gap = time_gap; return this;
     }
 
-    public boolean isPause() {
-        return pause;
-    }
-
-    public TimeStampedPoint pause(boolean pause) {
-        this.pause = pause; return this;
-    }
-
-    public boolean isSpeedChange() {
-        return speed_change;
-    }
-
-    public TimeStampedPoint speedChange(boolean speed_change) {
-        this.speed_change = speed_change; return this;
-    }
-
-    public boolean isTurn() {
-        return turn;
-    }
-
-    public TimeStampedPoint turn(boolean turn) {
-        this.turn = turn; return this;
-    }
-
     //in units: "n" knots / hour
     public TimeStampedPoint euc_speed(TimeStampedPoint source){
-        this.time_gap = (timestamp.getTime() - source.timestamp.getTime()) / 1000.0;
-        this.distance_gap = eucDistance(source);
+        this.time_gap = (getTimestampLong() - source.getTimestampLong()) / 1000.0;
+        this.distance_gap = Euclidean.distance(this, source);
         this.euc_speed =  distance_gap / time_gap * 3600 / 1852;
         return this;
     }
@@ -152,11 +113,60 @@ public class TimeStampedPoint implements TrajectoryUnit<TimeStampedPoint>, Eucli
         return this;
     }
 
-    public void copy(TimeStampedPoint source){
-        bearing = source.bearing;
-        distance_gap = source.distance_gap;
-        time_gap = source.time_gap;
-        euc_speed = source.euc_speed;
+    public TimeStampedPoint setX(double x) {
+        this.x = x; return this;
+    }
+
+    public TimeStampedPoint setY(double y){
+        this.y = y; return this;
+    }
+
+    public TimeStampedPoint timestamp_string(String timestamp_string) throws ParseException {
+        this.timestamp_string = timestamp_string;
+        if(this.timestamp_string != null){
+            this.timestamp = formatter.parse(this.timestamp_string);
+        }
+        return this;
+    }
+
+    public TimeStampedPoint setTurned(boolean turned) {
+        this.turned = turned; return this;
+    }
+
+    public TimeStampedPoint setSpeedchanged(boolean speedchanged) {
+        this.speedchanged = speedchanged; return this;
+    }
+
+    public TimeStampedPoint setPaused(boolean paused) {
+        this.paused = paused; return this;
+    }
+
+    public TimeStampedPoint longitude(double longitude){
+        this.longitude = longitude; return this;
+    }
+
+    public TimeStampedPoint latitide(double latitude){
+        this.latitude = latitude; return this;
+    }
+
+    public double getTimeGap() {
+        return time_gap;
+    }
+
+    public double getDistanceGap() {
+        return distance_gap;
+    }
+
+    public double getBearing() {
+        return bearing;
+    }
+
+    public double getSignedTurn() {
+        return signed_turn;
+    }
+
+    public double getEucSpeed() {
+        return euc_speed;
     }
 
     public double getLongitude() {
@@ -183,36 +193,33 @@ public class TimeStampedPoint implements TrajectoryUnit<TimeStampedPoint>, Eucli
         return timestamp.getTime();
     }
 
-    public double getTimeGap() {
-        return time_gap;
+    public boolean isTurned() {
+        return turned;
     }
 
-    public double getDistanceGap() {
-        return distance_gap;
+    public boolean isSpeedchanged() {
+        return speedchanged;
     }
 
-    public double getBearing() {
-        return bearing;
+    public boolean isPaused() {
+        return paused;
     }
 
-    public double getSignedTurn() {
-        return signed_turn;
-    }
-
-    public double getEucSpeed() {
-        return euc_speed;
-    }
-
-    @Override
-    public double eucDistance(TimeStampedPoint timeStampedPoint) {
-        double x_ = timeStampedPoint.getX();
-        double y_ = timeStampedPoint.getY();
-        return Math.hypot((x - x_), (y - y_));
+    public void copy(TimeStampedPoint point){
+        this.time_gap = point.time_gap;
+        this.distance_gap = point.distance_gap;
+        this.euc_speed = point.euc_speed;
+        this.bearing = point.bearing;
     }
 
     @Override
-    public double distance(TimeStampedPoint timeStampedPoint) {
-        return eucDistance(timeStampedPoint);
+    public double[] vectorizedEuclidean() {
+        return new double[]{x, y};
+    }
+
+    @Override
+    public double[] vectorizedManhattan() {
+        return vectorizedEuclidean();
     }
 
     public static void main(String[] args) {

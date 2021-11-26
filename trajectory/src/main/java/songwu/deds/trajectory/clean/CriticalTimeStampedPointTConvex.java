@@ -1,107 +1,41 @@
 package songwu.deds.trajectory.clean;
 
 import songwu.deds.trajectory.data.*;
+import songwu.deds.trajectory.data.TimeStampedPointT;
 
 import java.util.*;
 
-//不区分加减速，stop和slow-motion使用不同阈值，速度变化采用z-score
-public class CriticalTimeStampedPointT_Song {
+//不区分加减速，stop和slow-motion使用不同阈值，速度变化采用alpha
+public class CriticalTimeStampedPointTConvex extends CriticalTimestampedPoint{
     private int gap;
     private int history;
-    private double sigma_times_threshold;
     private double smooth_threshold;
+    private double speed_alpha;
     private double speed_min;
     private double speed_slow_motion;
 
-    private int counter = 0;
-    private int number_threads = 1;
-
-    private List<TimeStampedPointT> trajs = new ArrayList<>();
-    private List<CriticalPointT> answer = new ArrayList<>();
-    private PriorityQueue<CriticalRatio> queue = new PriorityQueue<>(Comparator.comparingDouble(CriticalRatio::getRatio));
-    private List<CriticalPointInterval> criticalIntervals = new ArrayList<>();
-
-    public class CriticalRatio{
-        private String id;
-        private String mmsi;
-        private int previous;
-        private int now;
-        private double ratio;
-
-        public CriticalRatio id(String id){
-            this.id = id;
-            return this;
-        }
-
-        public CriticalRatio mmsi(String mmsi){
-            this.mmsi = mmsi;
-            return this;
-        }
-
-        public CriticalRatio previous(int previous){
-            this.previous = previous;
-            return this;
-        }
-
-        public CriticalRatio now(int now){
-            this.now = now;
-            return this;
-        }
-
-        public CriticalRatio ratio(){
-            this.ratio = 1.0 * now / previous;
-            return this;
-        }
-
-        public double getRatio() {
-            return ratio;
-        }
-
-        public int getPrevious() {
-            return previous;
-        }
-
-        public int getNow() {
-            return now;
-        }
-
-        public String getMmsi() {
-            return mmsi;
-        }
-
-        public String getId(){ return id; }
-    }
-
-    public CriticalTimeStampedPointT_Song setGap(int gap) {
+    public CriticalTimeStampedPointTConvex setGap(int gap) {
         this.gap = gap; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setSpeed_min(double speed_min) {
+    public CriticalTimeStampedPointTConvex setSpeedMin(double speed_min) {
         this.speed_min = speed_min; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setSpeed_slow_motion(double speed_slow_motion) {
+    public CriticalTimeStampedPointTConvex setSpeedSlowMotion(double speed_slow_motion) {
         this.speed_slow_motion = speed_slow_motion; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setHistory(int history) {
+    public CriticalTimeStampedPointTConvex setHistory(int history) {
         this.history = history; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setSmoothThreshold(double smooth_threshold) {
+    public CriticalTimeStampedPointTConvex setSmoothThreshold(double smooth_threshold) {
         this.smooth_threshold = smooth_threshold; return this;
     }
 
-    public CriticalTimeStampedPointT_Song setSigmaTimeThreshold(double sigmaTimeThreshold) {
-        this.sigma_times_threshold = sigmaTimeThreshold; return this;
-    }
-
-    public CriticalTimeStampedPointT_Song setNumberThreads(int number_threads) {
-        this.number_threads = number_threads; return this;
-    }
-
-    public CriticalTimeStampedPointT_Song setTrajs(List<TimeStampedPointT> trajs) {
-        this.trajs = trajs; return this;
+    public CriticalTimeStampedPointTConvex setSpeedAlpha(double speed_alpha) {
+        this.speed_alpha = speed_alpha; return this;
     }
 
     public void worker(){
@@ -205,11 +139,11 @@ public class CriticalTimeStampedPointT_Song {
 
                 //speed-change
                 if(_s > speed_min && avg_speed > speed_min){
-                    double times = Math.abs((_s - avg_speed) / deviation_speed);
-                    if(times > sigma_times_threshold && (! speedchange_flag)){
+                    double variation = Math.abs((_s - avg_speed) / avg_speed);
+                    if(variation > speed_alpha && (! speedchange_flag)){
                         critical.addPoint(new CriticalPoint().setType("speedChangeStart").copy(current));
                         speedchange_flag = true;
-                    }else if(times < sigma_times_threshold && speedchange_flag){
+                    }else if(variation < speed_alpha && speedchange_flag){
                         critical.addPoint(new CriticalPoint().setType("speedChangeEnd").copy(current));
                         speedchange_flag = false;
                     }
@@ -256,14 +190,13 @@ public class CriticalTimeStampedPointT_Song {
             critical.sort();
             synchronized (this){
                 answer.add(critical);
-                queue.add(new CriticalRatio().id(query.trajId()).mmsi(query.trajId().split("-")[0]).previous(query.size()).now(critical.size()).ratio());
+                queue.add(new UniversalRatio().id(query.trajId()).previous(query.size()).now(critical.size()).ratio());
                 criticalIntervals.addAll(point2interval(critical));
             }
-//            System.out.println(query.trajId() + " : " + query.size() + " --> " + critical.size());
         }
     }
 
-    private List<CriticalPointInterval> point2interval(CriticalPointT ct){
+    public List<CriticalPointInterval> point2interval(CriticalPointT ct){
         HashMap<String, List<CriticalPoint>> buffer = new HashMap<>();
         buffer.put("stopStart", new ArrayList<>());
         buffer.put("stopEnd", new ArrayList<>());
@@ -281,8 +214,8 @@ public class CriticalTimeStampedPointT_Song {
                 smoothTurn.add(new CriticalPointInterval().setType("smooth_turn")
                         .setStartTime(cp.getTimestamp())
                         .setEndTime(cp.getTimestamp())
-                        .setId(smoothTurn.size() + "")
-                        .setMid(ct.trajId().split("-")[0]).setId0(ct.trajId()));
+                        .setRank(smoothTurn.size() + "")
+                        .setId(ct.trajId()));
             }
             else if(cp.getType().equals("tripStart"))
                 tripStart = cp.getTimestamp();
@@ -305,10 +238,10 @@ public class CriticalTimeStampedPointT_Song {
         for(CriticalPoint cp : stopS){
             if(stopE.size() > counterInterval){
                 intervals.add(new CriticalPointInterval().setType("stop")
-                        .setId(counterInterval + "")
+                        .setRank(counterInterval + "")
                         .setStartTime(cp.getTimestamp())
                         .setEndTime(stopE.get(counterInterval).getTimestamp())
-                        .setMid(ct.trajId().split("-")[0]).setId0(ct.trajId()));
+                        .setId(ct.trajId()));
                 counterInterval++;
             }else {
                 break;
@@ -318,10 +251,10 @@ public class CriticalTimeStampedPointT_Song {
         for(CriticalPoint cp : slowS){
             if(slowE.size() > counterInterval){
                 intervals.add(new CriticalPointInterval().setType("slowMotion")
-                        .setId(counterInterval + "")
+                        .setRank(counterInterval + "")
                         .setStartTime(cp.getTimestamp())
                         .setEndTime(slowE.get(counterInterval).getTimestamp())
-                        .setMid(ct.trajId().split("-")[0]).setId0(ct.trajId()));
+                        .setId(ct.trajId()));
                 counterInterval++;
             }else {
                 break;
@@ -331,10 +264,10 @@ public class CriticalTimeStampedPointT_Song {
         for(CriticalPoint cp : gapS){
             if(gapE.size() > counterInterval){
                 intervals.add(new CriticalPointInterval().setType("gap")
-                        .setId(counterInterval + "")
+                        .setRank(counterInterval + "")
                         .setStartTime(cp.getTimestamp())
                         .setEndTime(gapE.get(counterInterval).getTimestamp())
-                        .setMid(ct.trajId().split("-")[0]).setId0(ct.trajId()));
+                        .setId(ct.trajId()));
                 counterInterval++;
             }else {
                 System.out.println(ct.trajId() + " --> gap: [" + gapS.size() + "," + gapE.size() + "]");
@@ -345,10 +278,10 @@ public class CriticalTimeStampedPointT_Song {
         for(CriticalPoint cp : speedS){
             if(speedE.size() > counterInterval){
                 intervals.add(new CriticalPointInterval().setType("speedChange")
-                        .setId(counterInterval + "")
+                        .setRank(counterInterval + "")
                         .setStartTime(cp.getTimestamp())
                         .setEndTime(speedE.get(counterInterval).getTimestamp())
-                        .setMid(ct.trajId().split("-")[0]).setId0(ct.trajId()));
+                        .setId(ct.trajId()));
                 counterInterval++;
             }else {
                 System.out.println(ct.trajId() + " --> speedChange: [" + speedS.size() + "," + speedE.size() + "]");
@@ -358,36 +291,12 @@ public class CriticalTimeStampedPointT_Song {
 
         intervals.addAll(smoothTurn);
         intervals.add(new CriticalPointInterval().setType("trip")
-                .setId(counterInterval + "")
+                .setRank(counterInterval + "")
                 .setStartTime(tripStart)
                 .setEndTime(tripEnd)
-                .setMid(ct.trajId().split("-")[0]).setId0(ct.trajId()));
+                .setId(ct.trajId()));
         return intervals;
     }
 
-    public List<CriticalPointT> go() throws InterruptedException {
-        answer.clear();
-        queue.clear();
-        criticalIntervals.clear();
-        counter = 0;
-        List<Thread> workers = new ArrayList<>();
-        for(int i = 0; i < number_threads; i++){
-            workers.add(new Thread(this::worker, "worker#" + (i + 1)));
-        }
-        for(Thread worker : workers){
-            worker.start();
-        }
-        for(Thread worker : workers){
-            worker.join();
-        }
-        return answer;
-    }
 
-    public PriorityQueue<CriticalRatio> getCriticalRatio() {
-        return queue;
-    }
-
-    public List<CriticalPointInterval> getCriticalIntervals(){
-        return criticalIntervals;
-    }
 }

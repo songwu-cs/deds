@@ -3,24 +3,23 @@ package songwu.deds.trajectory.io;
 import songwu.deds.trajectory.data.TimeStampedPoint;
 import songwu.deds.trajectory.data.TimeStampedPointT;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.ParseException;
 import java.util.*;
 
-public class File2TimestampedPointT {
-    private int Traj_id = Integer.MIN_VALUE;
-    private int Longitude = Integer.MIN_VALUE;
-    private int Latitude = Integer.MIN_VALUE;
-    private int X = Integer.MIN_VALUE;
-    private int Y = Integer.MIN_VALUE;
-    private int Timestamp = Integer.MIN_VALUE;
+public class File2TimestampedPointT{
+    protected int Traj_id = Integer.MIN_VALUE;
+    protected int Longitude = Integer.MIN_VALUE;
+    protected int Latitude = Integer.MIN_VALUE;
+    protected int X = Integer.MIN_VALUE;
+    protected int Y = Integer.MIN_VALUE;
+    protected int Timestamp = Integer.MIN_VALUE;
 
-    private String file_path;
-    private String splitter;
-    private boolean with_header;
+    protected String file_path;
+    protected String splitter;
+    protected boolean with_header;
 
     public File2TimestampedPointT filePath(String file_path) {
         this.file_path = file_path;
@@ -67,7 +66,13 @@ public class File2TimestampedPointT {
         return this;
     }
 
-    public void extra(TimeStampedPoint point, String[] parts){
+    public TimeStampedPoint modify(TimeStampedPoint point, String[] parts) throws ParseException {
+        point.setX(Double.parseDouble(parts[X]));
+        point.setY(Double.parseDouble(parts[Y]));
+        point.latitide(Double.parseDouble(parts[Latitude]));
+        point.longitude(Double.parseDouble(parts[Longitude]));
+        point.timestamp_string(parts[Timestamp]);
+        return point;
     }
 
     public List<TimeStampedPointT> go() throws IOException, ParseException {
@@ -83,13 +88,8 @@ public class File2TimestampedPointT {
                 previous_traj = parts[Traj_id];
             }
 
-            double x = Double.parseDouble(parts[X]);
-            double y = Double.parseDouble(parts[Y]);
-            TimeStampedPoint point = new TimeStampedPoint(x, y);
-            point.latitide(Double.parseDouble(parts[Latitude]));
-            point.longitude(Double.parseDouble(parts[Longitude]));
-            point.timestamp_string(parts[Timestamp]);
-            extra(point, parts);
+            TimeStampedPoint point = new TimeStampedPoint();
+            modify(point, parts);
             trajectories.get(trajectories.size() - 1).addPoint(point);
         }
 

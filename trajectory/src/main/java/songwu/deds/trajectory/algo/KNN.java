@@ -10,7 +10,7 @@ public class KNN<U extends TrajectoryUnit<U>, T extends Trajectory<U>>{
     private List<SimilarityMeasure<U, T>> sim_measures;
     private List<T> queries;
     private List<T> database;
-    private int k_value;
+    private final int k_value;
     private int counter;
     private int number_threads = 1;
     private List<KNNelement> answer = new ArrayList<>();
@@ -35,11 +35,11 @@ public class KNN<U extends TrajectoryUnit<U>, T extends Trajectory<U>>{
             for(SimilarityMeasure<U, T> measure : sim_measures){
                 priority_queue.clear();
                 my_answer.clear();
-                my_answer.add(new KNNelement(query.trajId(), query.trajId(), measure.name(), 0));
+                my_answer.add(new KNNelement(query.trajId(), query.trajId(), measure.similarityName(), 0));
                 for(T candidate : database){
                     if(query == candidate)
                         continue;
-                    priority_queue.add(new KNNelement(query.trajId(), candidate.trajId(), measure.name(), measure.apply(query, candidate)));
+                    priority_queue.add(new KNNelement(query.trajId(), candidate.trajId(), measure.similarityName(), measure.apply(query, candidate)));
                 }
                 int rank = 1;
                 while (rank <= this.k_value && priority_queue.size() > 0){
@@ -48,7 +48,7 @@ public class KNN<U extends TrajectoryUnit<U>, T extends Trajectory<U>>{
                 synchronized (this){
                     answer.addAll(my_answer);
                 }
-                System.out.println(name + " : " + query.trajId() + " : " + measure.name());
+                System.out.println(name + " : " + query.trajId() + " : " + measure.similarityName());
             }
         }
     }

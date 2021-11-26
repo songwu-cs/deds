@@ -1,35 +1,31 @@
 package songwu.deds.trajectory.data;
 
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+import java.security.Principal;
+import java.util.List;
+
 public class CriticalPointInterval {
-    private String id0;
-    private String mid;
     private String id;
+    private String rank;
     private String type;
     private String startTime;
     private String endTime;
 
-    public String getId() {
+    public String getRank() {
+        return rank;
+    }
+
+    public CriticalPointInterval setRank(String rank) {
+        this.rank = rank; return this;
+    }
+
+    public String getId(){
         return id;
     }
 
-    public String getId0() {
-        return id0;
-    }
-
-    public CriticalPointInterval setId(String id) {
+    public CriticalPointInterval setId(String id){
         this.id = id; return this;
-    }
-
-    public CriticalPointInterval setId0(String id0) {
-        this.id0 = id0; return this;
-    }
-
-    public String getMid(){
-        return mid;
-    }
-
-    public CriticalPointInterval setMid(String mid){
-        this.mid = mid; return this;
     }
 
     public String getType() {
@@ -54,5 +50,15 @@ public class CriticalPointInterval {
 
     public CriticalPointInterval setEndTime(String endTime) {
         this.endTime = endTime; return this;
+    }
+
+    public static void saveIntervals(String outputPath, List<CriticalPointInterval> intervals) throws FileNotFoundException {
+        try(PrintWriter writerInterval = new PrintWriter(outputPath)){
+            writerInterval.write("rank,type,startTime,endTime,id\n");
+            for(CriticalPointInterval interval : intervals){
+                writerInterval.write(interval.getRank() + "," + interval.getType() + "," + interval.getStartTime() + "," + interval.getEndTime() + "," + interval.getId() + "\n");
+            }
+        }
+
     }
 }
