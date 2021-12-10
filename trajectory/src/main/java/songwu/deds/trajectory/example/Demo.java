@@ -151,7 +151,7 @@ public class Demo {
     }
     public static void criticalConvex() throws InterruptedException, IOException, ParseException{
         File2TimestampedPointT input = new File2TimestampedPointT();
-        input.filePath("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km.csv")
+        input.filePath("E:\\DEDS-DataLake\\2021-11-25-boost-validation\\20211116_final.csv")
                 .splitter(",")
                 .withHeader(true)
                 .trajId(0)
@@ -174,15 +174,15 @@ public class Demo {
                 .setSpeedMin(1).setSpeedSlowMotion(5).setTrajs(denoised).setNumberThreads(4);
         List<CriticalPointT> criticaled = criticaler.go();
 
-        UniversalRatio.saveRatio("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km_CriticalConvexRatio.csv", criticaler.getCriticalRatio());
-        CriticalPointT.saveCriticalPointT("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km_CriticalConvex.csv", criticaled);
-        CriticalPointInterval.saveIntervals("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_convex\\ais_20210926_1km_CriticalConvexIntervals.csv", criticaler.getCriticalIntervals());
+        UniversalRatio.saveRatio("E:\\DEDS-DataLake\\2021-11-25-boost-validation\\20211116_final_criticalRatio.csv", criticaler.getCriticalRatio());
+        CriticalPointT.saveCriticalPointT("E:\\DEDS-DataLake\\2021-11-25-boost-validation\\20211116_final_critical.csv", criticaled);
+        CriticalPointInterval.saveIntervals("E:\\DEDS-DataLake\\2021-11-25-boost-validation\\20211116_final_criticalInterval.csv", criticaler.getCriticalIntervals());
     }
 
     public static void main(String[] args) throws ParseException, IOException, NoSuchFieldException, IllegalAccessException, InterruptedException {
-        denoise();
+//        denoise();
 //        critical();
 //        critical42();
-//        criticalConvex();
+        criticalConvex();
     }
 }

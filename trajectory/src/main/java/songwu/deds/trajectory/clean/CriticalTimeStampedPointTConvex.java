@@ -61,6 +61,16 @@ public class CriticalTimeStampedPointTConvex extends CriticalTimestampedPoint{
             critical.addPoint(new CriticalPoint().setType("tripStart").copy(query.getUnit(0)));
             critical.addPoint(new CriticalPoint().setType("tripEnd").copy(query.getUnit(query.size() - 1)));
 
+            for(int k = 1; k <= history; k++){
+                TimeStampedPoint current = query.getUnit(k);
+                TimeStampedPoint previous = query.getUnit(k - 1);
+
+                if(current.getTimeGap() > gap){
+                    critical.addPoint(new CriticalPoint().setType("gapStart").copy(previous));
+                    critical.addPoint(new CriticalPoint().setType("gapEnd").copy(current));
+                }
+            }
+
             for(int k = history + 1; k < len; k++){
                 TimeStampedPoint current = query.getUnit(k);
                 TimeStampedPoint previous = query.getUnit(k - 1);

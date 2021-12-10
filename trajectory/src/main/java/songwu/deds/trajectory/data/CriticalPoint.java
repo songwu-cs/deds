@@ -72,6 +72,7 @@ public class CriticalPoint implements TrajectoryUnit<CriticalPoint> {
         this.latitude = point.getLatitude();
         this.x = point.getX();
         this.y = point.getY();
+        this.order = point.getTimestampLong();
         return this;
     }
 
