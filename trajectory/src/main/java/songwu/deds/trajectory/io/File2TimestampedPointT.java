@@ -77,6 +77,7 @@ public class File2TimestampedPointT{
 
     public List<TimeStampedPointT> go() throws IOException, ParseException {
         List<String> lines = Files.readAllLines(Paths.get(file_path));
+
         List<TimeStampedPointT> trajectories = new ArrayList<>();
 
         String previous_traj = "";

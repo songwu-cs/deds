@@ -90,11 +90,11 @@ public class CriticalTimeStampedPointTConvex extends CriticalTimestampedPoint{
                     }
                     //reset stop and slow-motion status
                     if(slow_motion_flag){
-                        critical.addPoint(new CriticalPoint().setType("slowMotionEnd").copy(query.getUnit(k - 1)));
+                        critical.addPoint(new CriticalPoint().setType("slowMotionEnd").copy(previous));
                         slow_motion_flag = false;
                     }
                     if(stop_flag){
-                        critical.addPoint(new CriticalPoint().setType("stopEnd").copy(query.getUnit(k - 1)));
+                        critical.addPoint(new CriticalPoint().setType("stopEnd").copy(previous));
                         stop_flag = false;
                     }
 
@@ -138,7 +138,6 @@ public class CriticalTimeStampedPointTConvex extends CriticalTimestampedPoint{
                 //slow-motion
                 double _s = current.getEucSpeed();
                 double avg_speed = query.avgSpeed(k-1, history);
-                double deviation_speed = query.deviationSpeed(k-1, history, avg_speed);
                 if(_s > speed_min && _s <= speed_slow_motion && (!slow_motion_flag)){
                     critical.addPoint(new CriticalPoint().setType("slowMotionStart").copy(current));
                     slow_motion_flag = true;
@@ -254,6 +253,7 @@ public class CriticalTimeStampedPointTConvex extends CriticalTimestampedPoint{
                         .setId(ct.trajId()));
                 counterInterval++;
             }else {
+                System.out.println(ct.trajId() + " --> stop: [" + stopS.size() + "," + stopE.size() + "]");
                 break;
             }
         }
@@ -267,6 +267,7 @@ public class CriticalTimeStampedPointTConvex extends CriticalTimestampedPoint{
                         .setId(ct.trajId()));
                 counterInterval++;
             }else {
+                System.out.println(ct.trajId() + " --> slowMotion: [" + slowS.size() + "," + slowE.size() + "]");
                 break;
             }
         }

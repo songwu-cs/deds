@@ -1,4 +1,4 @@
-package songwu.deds.trajectory.example;
+package note;
 
 import songwu.deds.trajectory.algo.KNN;
 import songwu.deds.trajectory.clean.*;

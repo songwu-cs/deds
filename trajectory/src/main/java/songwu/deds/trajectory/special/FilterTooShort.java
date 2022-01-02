@@ -69,8 +69,8 @@ public class FilterTooShort {
 
     public static void main(String[] args) throws IOException {
         FilterTooShort filterTooShort = new FilterTooShort()
-                .setSourceFile("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_coastline\\ais_20210926_deanchorage_10km_subtrajectory.csv")
-                .setDestFile("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021_coastline\\ais_20210926_deanchorage_10km_subtrajectory_ge1000.csv")
+                .setSourceFile("H:\\UpanSky\\DEDS-DataLake\\2021-12-18-segmentation-clustering\\fishing-ais-oneweek-filtered.csv")
+                .setDestFile("H:\\UpanSky\\DEDS-DataLake\\2021-12-18-segmentation-clustering\\fishing-ais-oneweek-filtered-ge1000.csv")
                 .setIdIndex(0)
                 .setThreshold(1000);
         filterTooShort.go();
