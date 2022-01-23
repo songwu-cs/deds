@@ -1,4 +1,4 @@
-package note.task_2021_12_18_segmentation_clustering;
+package note.common;
 
 public class WindowLabelHelp {
     public final String whole;

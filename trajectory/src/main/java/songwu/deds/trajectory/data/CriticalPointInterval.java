@@ -1,8 +1,11 @@
 package songwu.deds.trajectory.data;
 
+import songwu.deds.trajectory.utility.MyDate;
+
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.security.Principal;
+import java.text.ParseException;
 import java.util.List;
 
 public class CriticalPointInterval {
@@ -11,6 +14,43 @@ public class CriticalPointInterval {
     private String type;
     private String startTime;
     private String endTime;
+
+    public static double avgDuration(List<CriticalPointInterval> intervals) throws ParseException {
+        if(intervals.size() == 0)
+            return 0;
+        double hours = 0;
+        for(CriticalPointInterval interval : intervals)
+            hours += MyDate.timestampDiff(interval.getEndTime(),
+                    interval.getStartTime()) / 3600.0;
+        return hours / intervals.size();
+    }
+
+    public static double spanDuration(List<CriticalPointInterval> intervals) throws ParseException {
+        if(intervals.size() == 0)
+            return 0;
+        return MyDate.timestampDiff(intervals.get(intervals.size()-1).getEndTime(),
+                intervals.get(0).getStartTime()) / 3600.0;
+    }
+
+    public static double totalDuration(List<CriticalPointInterval> intervals) throws ParseException {
+        if(intervals.size() == 0)
+            return 0;
+        double hours = 0;
+        for(CriticalPointInterval interval : intervals)
+            hours += MyDate.timestampDiff(interval.getEndTime(),
+                    interval.getStartTime()) / 3600.0;
+        return hours;
+    }
+
+    public static double avgInBetweenDuration(List<CriticalPointInterval> intervals) throws ParseException {
+        if(intervals.size() <= 1)
+            return 0;
+        return (spanDuration(intervals) - totalDuration(intervals)) / (intervals.size() - 1);
+    }
+
+    public double totalInBetweenDuration(List<CriticalPointInterval> intervals) throws ParseException {
+        return (spanDuration(intervals) - totalDuration(intervals));
+    }
 
     public String getRank() {
         return rank;

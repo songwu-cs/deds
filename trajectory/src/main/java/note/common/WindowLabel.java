@@ -1,18 +1,17 @@
-package note.task_2021_12_11_fishgear_classification;
+package note.common;
 
 public class WindowLabel {
-    public final String id;
     private final String wholeId;
     private final int partId;
+    public final String id;
     public final String label;
 
     public WindowLabel(String id, String label) {
         this.id = id;
         this.label = label;
-
-        String[] parts = id.split("-");
-        wholeId = id.substring(0, id.lastIndexOf("-"));
-        partId = Integer.parseInt(parts[2]);
+        int key = id.lastIndexOf("-");
+        wholeId = id.substring(0, key);
+        partId = Integer.parseInt(id.substring(key + 1, id.length()));
     }
 
     public String getWholeId() {
@@ -23,6 +22,8 @@ public class WindowLabel {
         return partId;
     }
 
+    public String getId(){return id;}
+
     public boolean isFishing(){
         return label.equals("fishing");
     }
@@ -30,8 +31,7 @@ public class WindowLabel {
     @Override
     public String toString() {
         return "WindowLabel{" +
-                "id='" + id + '\'' +
-                ", wholeId='" + wholeId + '\'' +
+                "wholeId='" + wholeId + '\'' +
                 ", partId=" + partId +
                 ", label='" + label + '\'' +
                 '}';

@@ -1,8 +1,11 @@
 package note.task_2021_12_11_fishgear_classification;
 
+import note.common.ManulLabel;
+import note.common.WindowLabel;
+import note.common.WindowLabelAid;
+import note.common.WindowLabelHelp;
 import songwu.deds.trajectory.clean.CriticalTimeStampedPointTConvex;
 import songwu.deds.trajectory.clean.DenoiseFakeTimeStampedPointT;
-import songwu.deds.trajectory.clean.DenoiseTimeStampedPointT;
 import songwu.deds.trajectory.data.*;
 import songwu.deds.trajectory.io.File2TimestampedPointT;
 import songwu.deds.trajectory.utility.MyDate;
@@ -10,7 +13,6 @@ import songwu.deds.trajectory.utility.Statistics;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.ParseException;
 import java.util.*;
 

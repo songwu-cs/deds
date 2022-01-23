@@ -73,6 +73,11 @@ public class TimeStampedPointT implements Trajectory<TimeStampedPoint>{
         this.points.addAll(Arrays.asList(points));
     }
 
+    public TimeStampedPointT setId(String id){
+        this.id = id;
+        return this;
+    }
+
     @Override
     public int size() {
         return points.size();
@@ -86,6 +91,12 @@ public class TimeStampedPointT implements Trajectory<TimeStampedPoint>{
     @Override
     public String trajId() {
         return id;
+    }
+
+    public TimeStampedPointT subTraj(int start, int end){
+        TimeStampedPointT t = new TimeStampedPointT(id);
+        t.points.addAll(points.subList(start, end));
+        return t;
     }
 
     @Override
