@@ -6,6 +6,9 @@ import songwu.deds.trajectory.data.TimeStampedPointT;
 import songwu.deds.trajectory.similarity.Euclidean;
 
 
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -18,14 +21,14 @@ public class IsDense {
     public final int timeLimit;
 
 
-    public IsDense(int toleranceMax, int minpts, int radius, int timeLimit) {
+    public IsDense(int toleranceMax, int minpts, int radius, int timeLimit) throws FileNotFoundException {
         this.toleranceMax = toleranceMax;
         this.minpts = minpts;
         this.radius = radius;
         this.timeLimit = timeLimit;
     }
 
-    //噪声点的时间间隔也考虑在内
+    //噪声点的时间间隔也考虑在内，minpts也算上噪声点
     public boolean[] label(TimeStampedPointT traj){
         int i = 0;
         boolean[] answer = new boolean[traj.size()];
@@ -69,6 +72,56 @@ public class IsDense {
             }
         }
 
+        return answer;
+    }
+
+    //噪声点的时间间隔也考虑在内，minpts不算噪声点，噪声点标记为true或者false
+    public boolean[] labelNoiseTrueFalse(TimeStampedPointT traj, boolean noiseTrue){
+        int i = 0;
+        boolean[] answer = new boolean[traj.size()];
+        while (i < traj.size()){
+            int j = i;
+            int tolerance = 0;
+            int noiseCounter = 0;
+            TimeStampedPoint left = traj.getUnit(i);
+            HashSet<Integer> far = new HashSet<>();
+            while (j + 1 < traj.size()){
+                TimeStampedPoint right = traj.getUnit(j + 1);
+                if(Euclidean.distance(left, right) > radius){
+                    tolerance++;
+
+                    far.add(j + 1);
+                    if (tolerance > toleranceMax){
+                        j -= toleranceMax;
+                        tolerance = 0;
+                        break;
+                    }
+                    j++;
+                }else {
+                    noiseCounter += tolerance;
+                    tolerance = 0;
+
+                    j++;
+                }
+            }
+            j -= tolerance;
+
+            boolean bigTimeGap = false;
+            for(int _ = i + 1; _ <= j; _++){
+                if(traj.getUnit(_).getTimeGap() > timeLimit){
+                    bigTimeGap = true;
+                    break;
+                }
+            }
+            if(bigTimeGap || (j - i + 1) - noiseCounter > minpts){
+                for(int _ = i; _ <= j; _++){
+                    answer[_] = noiseTrue ? true : (! far.contains(_));
+                }
+                i = j;
+            }else {
+                i++;
+            }
+        }
         return answer;
     }
 

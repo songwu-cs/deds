@@ -165,9 +165,11 @@ public class Task {
                 String id = parts[0];
                 String sTime = parts[1];
                 String eTime = parts[2];
-                TimeStampedPointT traj = denoised.get(ListGeneric.firstIndex(denoised, e -> e.trajId().equals(id.substring(0,id.lastIndexOf("-")))));
+                String magic = id.contains("-") ? id.substring(0,id.lastIndexOf("-")) : id;
+                TimeStampedPointT traj = denoised.get(ListGeneric.firstIndex(denoised, e -> e.trajId().equals(magic)));
                 int start = ListGeneric.firstIndex(traj.getAllUnits(), e -> e.getTimestamp().equals(sTime));
                 int end = ListGeneric.firstIndex(traj.getAllUnits(), e -> e.getTimestamp().equals(eTime));
+                System.out.println(start + " " + end);
                 windowed.add(traj.subTraj(start, end + 1).setId(id));
             }
         }
@@ -182,9 +184,9 @@ public class Task {
     }
 
     public static void criticalConvex() throws InterruptedException, IOException, ParseException{
-        String pathRaw = baseDir + "deanchorage_noise2.csv";
-        String pathCritical = baseDir + "deanchorage_noise2-critical.csv";
-        String pathCriticalInterval = baseDir + "deanchorage_noise2-criticalInterval.csv";
+        String pathRaw = baseDir + "paper-220051000-ais.csv";
+        String pathCritical = baseDir + "paper-220051000-ais-critical.csv";
+        String pathCriticalInterval = baseDir + "paper-220051000-ais-criticalInterval.csv";
 
         File2TimestampedPointT input = new File2TimestampedPointT();
         input.filePath(pathRaw)
@@ -468,6 +470,9 @@ public class Task {
     }
 
     public static void main(String[] args) throws IOException, ParseException, InterruptedException {
-//        t4();
+//        criticalConvex();
+        toCritical(baseDir + "paper-220051000-ais.csv",
+                baseDir + "paper-220051000-window.csv",
+                baseDir + "paper-220051000-windowIntervals.csv");
     }
 }
