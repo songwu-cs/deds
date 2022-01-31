@@ -8,6 +8,7 @@ import note.common.WindowLabel;
 import note.common.WindowLabelAid;
 import note.common.WindowLabelHelp;
 import songwu.deds.trajectory.clean.CriticalTimeStampedPointTConvexFinerSpeed;
+import songwu.deds.trajectory.clean.CriticalTimeStampedPointTConvexFinerSpeed10Plus;
 import songwu.deds.trajectory.clean.DenoiseFakeTimeStampedPointT;
 import songwu.deds.trajectory.data.CriticalPointInterval;
 import songwu.deds.trajectory.data.CriticalPointT;
@@ -183,6 +184,57 @@ public class Task {
         CriticalPointInterval.saveIntervals(intervalFile, criticaler.getCriticalIntervals());
     }
 
+    public static void toCritical10Plus(String dataFile, String windowFile, String intervalFile) throws IOException, ParseException, InterruptedException {
+        List<TimeStampedPointT> denoised;
+        if(preloaded != null)
+            denoised = preloaded;
+        else {
+            File2TimestampedPointT input = new File2TimestampedPointT();
+            input.filePath(dataFile)
+                    .splitter(",")
+                    .withHeader(true)
+                    .trajId(0)
+                    .timestamp(1)
+                    .longitude(2)
+                    .latitude(3)
+                    .x(4)
+                    .y(5);
+            List<TimeStampedPointT> trajs = input.go();
+            DenoiseFakeTimeStampedPointT denoiser = new DenoiseFakeTimeStampedPointT();
+            denoiser.setAngleThreshold(160).setHistory(7).setNumberThreads(4)
+                    .setSpeedMax(50).setSpeenMin(1).setTrajs(trajs)
+                    .setTurnThreshold(5).setSpeedAlpha(0.25);
+            denoised = denoiser.go();
+            preloaded = denoised;
+        }
+
+        List<String> lines = Files.readAllLines(Paths.get(windowFile));
+        List<TimeStampedPointT> windowed = new ArrayList<>();
+        try(PrintWriter writer = new PrintWriter(intervalFile)){
+            writer.write("rank,type,startTime,endTime,id" + "\n");
+            for(String line : lines.subList(1, lines.size())){
+                String[] parts = line.split(",");
+                String id = parts[0];
+                String sTime = parts[1];
+                String eTime = parts[2];
+                String magic = id.contains("-") ? id.substring(0,id.lastIndexOf("-")) : id;
+                TimeStampedPointT traj = denoised.get(ListGeneric.firstIndex(denoised, e -> e.trajId().equals(magic)));
+                int start = ListGeneric.firstIndex(traj.getAllUnits(), e -> e.getTimestamp().equals(sTime));
+                int end = ListGeneric.firstIndex(traj.getAllUnits(), e -> e.getTimestamp().equals(eTime));
+                System.out.println(start + " " + end);
+                windowed.add(traj.subTraj(start, end + 1).setId(id));
+            }
+        }
+
+        CriticalTimeStampedPointTConvexFinerSpeed10Plus criticaler = new CriticalTimeStampedPointTConvexFinerSpeed10Plus();
+        criticaler.setHistory(7).setGap(1800)
+                .setSmoothThreshold(10).setSpeedAlpha(0.25)
+                .setSpeedMin(1).setSpeedSlowMotion(5).setTrajs(windowed).setNumberThreads(4);
+        criticaler.go();
+
+        CriticalPointInterval.saveIntervals(intervalFile, criticaler.getCriticalIntervals());
+    }
+
     public static void criticalConvex() throws InterruptedException, IOException, ParseException{
         String pathRaw = baseDir + "paper-220051000-ais.csv";
         String pathCritical = baseDir + "paper-220051000-ais-critical.csv";
@@ -218,6 +270,52 @@ public class Task {
 
     public static void toFeatures(String intervalFile, String outFile) throws IOException, ParseException {
         String[] events =  new String[]{"gap","stop","slowMotion","speed5to6","speed6to7","speed7to8","speed8to9","speed9to10"};
+        String[] attrs = new String[]{"NumberAvg","TimeAvg","TimeTotalAvg","TimeSpanAvg"};
+        try(PrintWriter writer = new PrintWriter(outFile);
+            BatchFileReader batchFileReader = new BatchFileReader(intervalFile, ",", true, 4)) {
+            String header = "id,speedchangeavg,turnavg";
+            for(String _ : events) {
+                for(String __ : attrs){
+                    header += ("," + _ + __);
+                }
+            }
+            writer.write(header + "\n");
+
+            for(List<String> lines : batchFileReader){
+                String key = lines.get(0).split(",")[4];
+                Map<String, List<CriticalPointInterval>> value = new HashMap<>();
+                for(String line : lines){
+                    String[] parts = line.split(",");
+                    if(! value.containsKey(parts[1]))
+                        value.put(parts[1], new ArrayList<>());
+                    value.get(parts[1]).add(new CriticalPointInterval()
+                            .setId(parts[4])
+                            .setType(parts[1])
+                            .setRank(parts[0])
+                            .setStartTime(parts[2])
+                            .setEndTime(parts[3])
+                    );
+                }
+
+                double windowSize = CriticalPointInterval.spanDuration(value.get("trip"));
+                writer.write(key + ",");
+                writer.write(value.getOrDefault("speedChange", new ArrayList<>()).size() / windowSize + ",");
+                writer.write(value.getOrDefault("smooth_turn", new ArrayList<>()).size() / windowSize + "");
+                for(String _ : events){
+                    List<CriticalPointInterval> lc = value.getOrDefault(_, new ArrayList<>());
+                    writer.write("," + lc.size() / windowSize);
+                    writer.write("," + CriticalPointInterval.avgDuration(lc));
+                    writer.write("," + CriticalPointInterval.totalDuration(lc) / windowSize);
+                    writer.write("," + CriticalPointInterval.spanDuration(lc) / windowSize);
+                }
+                writer.write("\n");
+            }
+        }
+
+    }
+
+    public static void toFeatures10Plus(String intervalFile, String outFile) throws IOException, ParseException {
+        String[] events =  new String[]{"gap","stop","slowMotion","speed5to6","speed6to7","speed7to8","speed8to9","speed9to10","speed10Plus"};
         String[] attrs = new String[]{"NumberAvg","TimeAvg","TimeTotalAvg","TimeSpanAvg"};
         try(PrintWriter writer = new PrintWriter(outFile);
             BatchFileReader batchFileReader = new BatchFileReader(intervalFile, ",", true, 4)) {
@@ -471,8 +569,13 @@ public class Task {
 
     public static void main(String[] args) throws IOException, ParseException, InterruptedException {
 //        criticalConvex();
-        toCritical(baseDir + "paper-220051000-ais.csv",
-                baseDir + "paper-220051000-window.csv",
-                baseDir + "paper-220051000-windowIntervals.csv");
+
+//        toCritical(baseDir + "paper-220051000-ais.csv",
+//                baseDir + "paper-220051000-window.csv",
+//                baseDir + "paper-220051000-windowIntervals.csv");
+
+//        toCritical10Plus(baseDir + "paper-220051000-ais.csv",
+//                baseDir + "paper-220051000-window.csv",
+//                baseDir + "paper-220051000-windowIntervals10Plus.csv");
     }
 }
