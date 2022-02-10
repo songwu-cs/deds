@@ -86,6 +86,9 @@ public class Task {
             writeTrain.write("id,startTime,endTime,label\n");
             writeTest.write("id,startTime,endTime\n");
             for(ManulLabel ml : labels){
+                List<String[]> train = new ArrayList<>();
+                List<String[]> test = new ArrayList<>();
+
                 int start = ListString.indexStartWith(data, ml.mmsi + "," + ml.startTime);
                 int end = ListString.indexStartWith(data, ml.mmsi + "," + ml.endTime);
 
@@ -99,18 +102,17 @@ public class Task {
                         System.out.println(ml.mmsi + " " + currentStart + " " + currentEnd);
 
                         if(ml.label.equals("test")){
-                            writeTest.write(String.join(",",
+                            test.add(new String[]{
                                     ml.mmsi + "-" + counter,
                                     data.get(currentStart).split(",")[1],
-                                    data.get(currentEnd).split(",")[1]
-                            ) + "\n");
+                                    data.get(currentEnd).split(",")[1]});
                         }else {
-                            writeTrain.write(String.join(",",
+                            train.add(new String[]{
                                     ml.mmsi + "-" + counter,
                                     data.get(currentStart).split(",")[1],
                                     data.get(currentEnd).split(",")[1],
                                     ml.label
-                            ) + "\n");
+                            });
                         }
 
                         currentStart = currentStart + (int)((currentEnd - currentStart) * strategy.stepsize);
@@ -128,6 +130,18 @@ public class Task {
 
                     duration += MyDate.timestampDiff(data.get(currentEnd).split(",")[1],
                             data.get(currentEnd-1).split(",")[1]);
+                }
+
+                if(ml.label.equals("test")){
+                    test.get(test.size() - 1)[2] = data.get(end).split(",")[1];
+                }else {
+                    train.get(train.size() - 1)[2] = data.get(end).split(",")[1];
+                }
+                for(String[] sa : train){
+                    writeTrain.write(String.join(",", sa) + "\n");
+                }
+                for(String[] sa : test){
+                    writeTest.write(String.join(",", sa) + "\n");
                 }
             }
         }
@@ -515,22 +529,22 @@ public class Task {
 
             forSandwich.add(new ManulLabel(String.join(",", aid.whole, sTime, eTime, "dummy")));
         }
-        try(PrintWriter writer = new PrintWriter(baseDir + "build_fishing_start_end_time_kernel.csv")){
-            writer.write("id,startTime,endTime,order\n");
-            int counter = 0;
-            for(ManulLabel label : forMovingAverage){
-                writer.write(String.join(",", label.mmsi, label.startTime, label.endTime, counter+"") + "\n");
-                counter++;
-            }
-        }
-        try(PrintWriter writer = new PrintWriter(baseDir + "build_fishing_start_end_time_sandwich.csv")){
-            writer.write("id,startTime,endTime,order\n");
-            int counter = 0;
-            for(ManulLabel label : forSandwich){
-                writer.write(String.join(",", label.mmsi, label.startTime, label.endTime, counter+"") + "\n");
-                counter++;
-            }
-        }
+//        try(PrintWriter writer = new PrintWriter(baseDir + "build_fishing_start_end_time_kernel.csv")){
+//            writer.write("id,startTime,endTime,order\n");
+//            int counter = 0;
+//            for(ManulLabel label : forMovingAverage){
+//                writer.write(String.join(",", label.mmsi, label.startTime, label.endTime, counter+"") + "\n");
+//                counter++;
+//            }
+//        }
+//        try(PrintWriter writer = new PrintWriter(baseDir + "build_fishing_start_end_time_sandwich.csv")){
+//            writer.write("id,startTime,endTime,order\n");
+//            int counter = 0;
+//            for(ManulLabel label : forSandwich){
+//                writer.write(String.join(",", label.mmsi, label.startTime, label.endTime, counter+"") + "\n");
+//                counter++;
+//            }
+//        }
         for(int i = 0; i < forMovingAverage.size() - 1; i++){
             ManulLabel m1 = forMovingAverage.get(i);
             ManulLabel m2 = forMovingAverage.get(i+1);
