@@ -565,18 +565,26 @@ public class Task {
         try(PrintWriter writer = new PrintWriter(buildPath)){
             List<String> aiss = Files.readAllLines(Paths.get(dataFile));
             writer.write(aiss.get(0) + ",sandwich,kernel\n");
+            int lastSandwich = 0;
+            int lastKernel = 0;
             for(String ais : aiss.subList(1, aiss.size())){
                 String[] parts = ais.split(",");
                 if(! tests.contains(parts[0]))
                     continue;
+
                 int indiceSandwich = ListGeneric.firstIndex(forSandwich, e -> e.mmsi.equals(parts[0]) &&
                         e.startTime.compareTo(parts[1]) <= 0 && e.endTime.compareTo(parts[1]) >= 0);
+                lastSandwich = indiceSandwich >= 0 ? indiceSandwich + 1: lastSandwich;
                 int indiceKernel = ListGeneric.firstIndex(forMovingAverage, e -> e.mmsi.equals(parts[0]) &&
                         e.startTime.compareTo(parts[1]) <= 0 && e.endTime.compareTo(parts[1]) >= 0);
+                lastKernel = indiceKernel >= 0 ? indiceKernel + 1: lastKernel;
+
+                int countSandwich = indiceSandwich < 0 ? 2 * lastSandwich + 1 : 2 * lastSandwich;
+                int countKernel = indiceKernel < 0 ? 2 * lastKernel + 1 : 2 * lastKernel;
                 writer.write(String.join(",",
                         ais,
-                        (indiceSandwich == -1 ? "sailing" : ("fishing-" + indiceSandwich)),
-                        (indiceKernel == -1 ? "sailing" : ("fishing-" + indiceKernel))) + "\n");
+                        String.format("%03d", countSandwich) + "-" + (indiceSandwich == -1 ? ("sailing-" + lastSandwich) : ("fishing-" + indiceSandwich)),
+                        String.format("%03d", countKernel) + "-" + (indiceKernel == -1 ? ("sailing-" + lastKernel) : ("fishing-" + indiceKernel))) + "\n");
             }
         }
     }
@@ -591,5 +599,6 @@ public class Task {
 //        toCritical10Plus(baseDir + "paper-220051000-ais.csv",
 //                baseDir + "paper-220051000-window.csv",
 //                baseDir + "paper-220051000-windowIntervals10Plus.csv");
+
     }
 }
