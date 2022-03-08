@@ -88,6 +88,7 @@ public class Task {
 
 
     public static void main(String[] args) throws IOException, ParseException, InterruptedException {
-        buildFishing();
+//        buildFishing();
+        getTripsByCluster50();
     }
 }
