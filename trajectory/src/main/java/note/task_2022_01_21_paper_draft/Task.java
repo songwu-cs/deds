@@ -55,7 +55,8 @@ public class Task {
                 baseDir + "build_labels.csv",//保存路径
                 baseDir + "build_encoding.csv",//变长编码
                 baseDir + "deanchorage_noise2_mini.csv",//ais数据集
-                baseDir + "window_testing.csv");//窗口的开始结束时间
+                baseDir + "window_testing.csv",
+                35);//窗口的开始结束时间
     }
 
     public static void toTrainTestWindows(String dataFile, String truthFile, String tripsFile, String outputTrain, String outputTest, GenerateTraingStrategy strategy) throws IOException, ParseException {
@@ -135,7 +136,13 @@ public class Task {
                 if(ml.label.equals("test")){
                     test.get(test.size() - 1)[2] = data.get(end).split(",")[1];
                 }else {
-                    train.get(train.size() - 1)[2] = data.get(end).split(",")[1];
+                    if(train.size() > 0)
+                        train.get(train.size() - 1)[2] = data.get(end).split(",")[1];
+                    else {
+                        train.add(new String[]{ml.mmsi + "-0", data.get(start).split(",")[1],
+                                                data.get(end).split(",")[1], ml.label});
+                        mmsi2identifier.put(ml.mmsi, 1);
+                    }
                 }
                 for(String[] sa : train){
                     writeTrain.write(String.join(",", sa) + "\n");
@@ -243,7 +250,7 @@ public class Task {
         CriticalTimeStampedPointTConvexFinerSpeed10Plus criticaler = new CriticalTimeStampedPointTConvexFinerSpeed10Plus();
         criticaler.setHistory(7).setGap(1800)
                 .setSmoothThreshold(10).setSpeedAlpha(0.25)
-                .setSpeedMin(1).setSpeedSlowMotion(5).setTrajs(windowed).setNumberThreads(4);
+                .setSpeedMin(1).setSpeedSlowMotion(5).setTrajs(windowed).setNumberThreads(1);
         criticaler.go();
 
         CriticalPointInterval.saveIntervals(intervalFile, criticaler.getCriticalIntervals());
@@ -374,12 +381,12 @@ public class Task {
 
     }
 
-    public static void buildFishingParts(String testPath, String buildPath, String runlengthFile, String dataFile, String testWindows) throws IOException {
+    public static void buildFishingParts(String testPath, String buildPath, String runlengthFile, String dataFile, String testWindows, int pythonLabelPos) throws IOException {
         List<WindowLabel> windowLabels = new ArrayList<>();
         List<String> lines = Files.readAllLines(new File(testPath).toPath());
         for(String line : lines.subList(1, lines.size())){
             String parts[] = line.split(",");
-            windowLabels.add(new WindowLabel(parts[0], parts[35]));
+            windowLabels.add(new WindowLabel(parts[0], parts[pythonLabelPos]));
         }
         windowLabels.sort(Comparator.comparing(WindowLabel::getWholeId).thenComparing(WindowLabel::getPartId));
 
@@ -411,7 +418,6 @@ public class Task {
                 writer.write(help.whole + "," + help.label + "," + help.size + "," + counter + "\n");
             }
         }
-
 
         List<List<WindowLabelHelp>> helpss = new ArrayList<>();
         helpss.add(new ArrayList<>());
@@ -464,7 +470,7 @@ public class Task {
                 WindowLabelHelp help__ = windowLabelHelps.get(endPos);
                 WindowLabelHelp help_ = windowLabelHelps.get(endPos + 1);
                 WindowLabelHelp help = windowLabelHelps.get(endPos + 2);
-                if(help.whole.equals(currentWhole) && help.label.equals("fishing") && help.size > help_.size && help__.size > help_.size){
+                if(help.whole.equals(currentWhole) && help.label.equals("fishing") && help.size >= help_.size && help__.size >= help_.size){
                     endPos+=2;
                 }else {
                     break;

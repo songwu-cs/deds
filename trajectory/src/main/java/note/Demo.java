@@ -43,6 +43,7 @@ public class Demo {
         List<KNN.KNNelement> answer = knn.go();
         return answer;
     }
+
     public static void denoise() throws IOException, InterruptedException, ParseException {
         File2TimestampedPointT input = new File2TimestampedPointT();
         input.filePath("E:\\DEDS-DataLake\\2021-11-25-boost-validation\\202111_19to20_filtered.csv")
@@ -93,6 +94,7 @@ public class Demo {
             }
         }
     }
+
     public static void critical7() throws IOException, InterruptedException, ParseException {
         File2TimestampedPointT input = new File2TimestampedPointT();
         input.filePath("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021\\ais_20210926_filterTooShort.csv")
@@ -120,6 +122,7 @@ public class Demo {
         UniversalRatio.saveRatio("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021\\ais_20210926_filterTooShort_Critical7Ratio.csv", criticaler.getCriticalRatio());
         CriticalPointT.saveCriticalPointT("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021\\ais_20210926_filterTooShort_Critical7.csv", criticaled);
     }
+
     public static void critical42() throws InterruptedException, IOException, ParseException {
         File2TimestampedPointT input = new File2TimestampedPointT();
         input.filePath("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021\\ais_20210926_filterTooShort.csv")
@@ -149,6 +152,7 @@ public class Demo {
         CriticalPointInterval.saveIntervals("C:\\Users\\TJUer\\Desktop\\dk_csv_apr2021\\ais_20210926_filterTooShort_Critical42Intervals.csv", criticaler.getCriticalIntervals());
 
     }
+
     public static void criticalConvex() throws InterruptedException, IOException, ParseException{
         File2TimestampedPointT input = new File2TimestampedPointT();
         input.filePath("E:\\DEDS-DataLake\\2021-11-25-boost-validation\\20211116_final.csv")

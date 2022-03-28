@@ -2,14 +2,10 @@ package note.task_2022_02_13_suez_canal;
 
 import io.bigdata.BatchFileReader;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
+import java.text.ParseException;
+import java.util.*;
 
 public class Task {
     public static String baseDIR = "H:\\UpanSky\\DEDS-DataLake\\suez-canal\\SuezCanal\\";
@@ -92,8 +88,57 @@ public class Task {
         }
     }
 
-    public static void main(String[] args) throws IOException {
-
-        List<String> ss = new ArrayList<>();
+    public static void numberOfWaitingShips() throws IOException {
+        try(BatchFileReader reader = new BatchFileReader("H:\\UpanSky\\DEDS-DataLake\\2022-03-14-suez-weather\\March-17to22-convoy-time-unixStamp.csv", ",", true, 1);
+            PrintWriter writer = new PrintWriter("H:\\UpanSky\\DEDS-DataLake\\2022-03-14-suez-weather\\March-17to22-convoy-time-unixStamp2.csv")) {
+            writer.write("Port Said,Role,Ship,Start Time,Suez South,Which Day,stampSAID,stampSOUTH,stampSTART,timeOfDayEgypt,timeOfDayUTC,total time,transit time,waiting time,anchoraged\n");
+            List<String> northConvoy = reader.readBatch();
+            List<String> southConvoy = reader.readBatch();
+            for(int i = 0; i < northConvoy.size(); i++){
+                int counter = 0;
+                int _start = Integer.parseInt(northConvoy.get(i).split(",")[8]);
+                for(int j = 0; j < i; j++){
+                    int __end = Integer.parseInt(northConvoy.get(j).split(",")[6]);
+                    if(__end > _start)
+                        counter++;
+                }
+                writer.write(northConvoy.get(i) + "," + counter + "\n");
+            }
+            for(int i = 0; i < southConvoy.size(); i++){
+                int counter = 0;
+                int _start = Integer.parseInt(southConvoy.get(i).split(",")[8]);
+                for(int j = 0; j < i; j++){
+                    int __end = Integer.parseInt(southConvoy.get(j).split(",")[7]);
+                    if(__end > _start)
+                        counter++;
+                }
+                writer.write(southConvoy.get(i) + "," + counter + "\n");
+            }
+        }
     }
+
+    public static void global2021() throws IOException {
+        File f = new File("H:\\UpanSky\\DEDS-DataLake\\2021");
+        double latMin = 29.754839972510933, latMax = 31.56449510799119;
+        double lonMin =  31.849365234374996, lonMax = 33.123779296875;
+        int counter = 0;
+        try(PrintWriter writer = new PrintWriter("H:\\UpanSky\\DEDS-DataLake\\2022-03-14-suez-weather\\NoaaGlobal2021.csv")){
+            for(File ff : f.listFiles()){
+                List<String> ss = Files.readAllLines(ff.toPath());
+                double lat = Double.parseDouble(ss.get(1).replace("\"", "").split(",")[3]);
+                double lon = Double.parseDouble(ss.get(1).replace("\"", "").split(",")[4]);
+                if(lat > latMin && lat < latMax && lon > lonMin && lon < lonMax){
+                    writer.write(String.join("\n", ss));
+                    writer.write("\n");
+                }
+                System.out.println(++counter);
+            }
+        }
+    }
+
+    public static void main(String[] args) throws IOException, ParseException {
+//        numberOfWaitingS hips();
+        global2021();
+    }
+
 }

@@ -49,7 +49,7 @@ public class Task {
     public static void toDenmarkCoast(String path, int step, int idIndex, int tIndex, int xIndex, int yIndex) throws IOException, InterruptedException {
         List<String> lines = Files.readAllLines(Paths.get(path));
         List<ToDenmarkCoastDistance> toDenmarkCoastDistances = new ArrayList<>();
-        for(int i = 0; i < step; i++){
+        for(int i = 0; i < step; i ++){
             toDenmarkCoastDistances.add(new ToDenmarkCoastDistance(lines.subList(1, lines.size()), step, i,0, 1, 4,5));
         }
         List<Thread> threads = new ArrayList<>();
@@ -121,7 +121,7 @@ public class Task {
 //        anchorageDetect(baseDir + "fishing-ais-oneweek-filtered-ge1000.csv",
 //                baseDir + "density-50.csv");
 
-//        toDenmarkCoast(baseDir + "fishing-ais-oneweek-filtered-ge1000.csv", 8, 0, 1, 4, 5);
+        toDenmarkCoast(baseDir + "fishing-ais-oneweek-filtered-ge1000.csv", 8, 0, 1, 4, 5);
 
         anchorageConnect(baseDir + "fishing-ais-oneweek-filtered-ge1000-denoisedFake-anchorage-withDistanceXY.csv",
                 baseDir + "density-50-finalLabel.csv",

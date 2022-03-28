@@ -83,7 +83,8 @@ public class Task {
                 path220209 + "build_labels.csv",//保存路径
                 path220209 + "build_encoding.csv",//变长编码
                 path220209 + "likely_trips.csv",//ais数据集
-                path220209 + "window_testing.csv");//窗口的开始结束时间
+                path220209 + "window_testing.csv",
+                35);//窗口的开始结束时间
     }
 
 
