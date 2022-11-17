@@ -1,12 +1,15 @@
 package noteAAU.task_2022_09_06_CO2;
 
 import angle.Angle;
+import calculation.Array1DBoolean;
 import calculation.Array1DString;
 import com.sun.org.apache.xpath.internal.operations.Mod;
 import datetime.OneTimestamp;
 import datetime.TwoTimestamp;
+import gis.IntersectionGrids;
 import io.bigdata.BatchFileReader;
 import noteAAU.task_2022_09_06_CO2.EmissionModels.*;
+import org.omg.CORBA.MARSHAL;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -19,15 +22,18 @@ import java.util.*;
 public class CO2emission {
 
     public static void computeCO2Emission() throws IOException, ParseException {
-        try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsEmissions2.csv");
-            BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsAll2.csv", ",", true, 0,9,3)){
-            writer.write("mmsi,segmentid,tileid,pieceid,heading,fromT,toT,draught,fromLon,fromLat,toLon,toLat,distance_m,time_s,speed_knots,co2_01_kg,co2_02_kg,co2_03_kg,co2_04_kg,co2_05_kg,draughtOver,speedOver,cargo_tons\n");
+        try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersWestCoastEmissions20.csv");
+            BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersWestCoast20.csv", ",", true, 0,9,3)){
+            writer.write("mmsi,segmentid,tileid,pieceid,heading,fromT,toT,draught,fromLon,fromLat,toLon,toLat,distance_m,time_s,speed_knots,co2_01_kg,co2_02_kg,co2_03_kg,co2_04_kg,co2_05_kg,co2_06_kg,draughtOver,speedOver,cargo_tons,waveAngle,waveHeight,displacement\n");
 
             BaselineCargoQuantity baselineCargoQuantity = new BaselineCargoQuantity();
             GrossTonnageAndMode grossTonnageAndMode = new GrossTonnageAndMode();
             IMO4thReport imo4thReport = new IMO4thReport();
-            STEAM steam = new STEAM();
+            STEAM steam = new STEAM(false);
+            STEAM steamWithWave = new STEAM(true);
             SpeedCubic speedCubic = new SpeedCubic();
+
+            Map<String, Map<String, Double>> answer = CO2emission.robustAllLoad();
 
             for(List<String> ls : reader){
                 String[] parts = ls.get(0).split(",");
@@ -36,6 +42,9 @@ public class CO2emission {
                 String tileid = parts[1];
                 String pieceid = parts[3];
                 double draught = Double.parseDouble(parts[2]);
+
+                if(! answer.containsKey(mmsi))
+                    continue;
 
                 for(int i = 0; i < ls.size() - 1; i++){
                     String[] partsFrom = ls.get(i).split(",");
@@ -72,9 +81,13 @@ public class CO2emission {
                             speedCubic.emission(segment),
                             imo4thReport.emission(segment),
                             steam.emission(segment),
+                            steamWithWave.emission(segment),
                             segment.draughtCorrect(),
                             segment.speedCorrect(),
-                            segment.cargoCarriedTons()));
+                            segment.cargoCarriedTons(),
+                            segment.waveFromDirection+"",
+                            segment.significantWaveHeight+"",
+                            segment.displacement+""));
                     writer.write("\n");
                 }
             }
@@ -221,20 +234,22 @@ public class CO2emission {
     }
 
     public static void robustSpeedPowerRpmRatio() throws IOException {
-        for (String file : new String[]{"RobustSpeed.csv", "RobustPower.csv", "RobustRpm.csv"}){
-            try (PrintWriter writer = new PrintWriter(ModelInit.workdir + file.replace("Robust", "Ratio"))){
+//        String[] files = {"RobustSpeed.csv", "RobustPower.csv", "RobustRpm.csv"}; int skip = 2;
+        String[] files = {"tile_emissions_wide.csv"}; int skip = 1;
+        for (String file : files){
+            try (PrintWriter writer = new PrintWriter(ModelInit.workdir + file.replace("Robust", "Ratio").replace("wide", "ratio"))){
                 writer.write("attr1,attr2,ratio,count\n");
 
                 List<String> lines = Files.readAllLines(Paths.get(ModelInit.workdir + file));
                 List<String> header = Arrays.asList(lines.get(0).split(","));
-                header = header.subList(2, header.size());
+                header = header.subList(skip, header.size());
 
                 int[] counter = new int[(header.size()) * (header.size() - 1) / 2];
                 double[] sum = new double[(header.size()) * (header.size() - 1) / 2];
 
                 for(String s : lines.subList(1, lines.size())){
                     List<String> parts = Arrays.asList(s.split(",", -1));
-                    parts = parts.subList(2, parts.size());
+                    parts = parts.subList(skip, parts.size());
 
                     int pos = -1;
                     for(int k = 0; k < header.size() - 1; k++){
@@ -243,7 +258,9 @@ public class CO2emission {
                             if(parts.get(k).equals("") || parts.get(k_).equals(""))
                                 continue;
                             double num1 = Double.parseDouble(parts.get(k));
+                            num1 = num1 == 0 ? 0.001 : num1;
                             double num2 = Double.parseDouble(parts.get(k_));
+                            num2 = num2 == 0 ? 0.001 : num2;
                             double ratio = Math.min(num1, num2) / Math.max(num1, num2);
                             counter[pos]++;
                             sum[pos] += ratio;
@@ -264,6 +281,147 @@ public class CO2emission {
         }
     }
 
+    public static void cosineSimilarity() throws IOException {
+        List<String> lines = Files.readAllLines(Paths.get(ModelInit.workdir + "tile_emissions_wide.csv"));
+        lines = lines.subList(1, lines.size());
+        try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "tile_emission_cosine.csv")) {
+            writer.write("attr1,attr2,cosine,angle\n");
+            double[][] emissions = new double[6][];
+            for(int i = 0; i < 6; i++)
+                emissions[i] = new double[lines.size()];
+
+            int counter = 0;
+            for(String line : lines){
+                String[] parts = line.split(",");
+                for(int i = 0; i < 6; i++)
+                    emissions[i][counter] = Double.parseDouble(parts[i+1]);
+                counter++;
+            }
+
+            String[] names = {"Co2 01 Kg", "Co2 02 Kg", "Co2 03 Kg", "Co2 04 Kg", "Co2 05 Kg", "Co2 06 Kg"};
+            for(int a = 0; a < 5; a++){
+                for (int b = a + 1; b < 6; b++){
+                    double dotProduct = 0;
+                    for(int i = 0; i < counter; i++)
+                        dotProduct += emissions[a][i] * emissions[b][i];
+
+                    double normA = 0;
+                    for(int i = 0; i < counter; i++)
+                        normA += Math.pow(emissions[a][i], 2);
+                    normA = Math.sqrt(normA);
+
+                    double normB = 0;
+                    for(int i = 0; i < counter; i++)
+                        normB += Math.pow(emissions[b][i], 2);
+                    normB = Math.sqrt(normB);
+
+                    double cosine = dotProduct / normA / normB;
+                    double angle = Math.toDegrees(Math.acos(cosine));
+                    writer.write(String.join(",", names[a], names[b], cosine+"", angle+""));
+                    writer.write("\n");
+                    writer.write(String.join(",", names[b], names[a], cosine+"", angle+""));
+                    writer.write("\n");
+                }
+            }
+        }
+    }
+
+    public static void toPieces() throws IOException, ParseException {
+        IntersectionGrids magic = new IntersectionGrids(5,52,20,60).split(0.05,0.05);
+
+        try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsAll20.csv");
+            BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliers.csv", ",", true, 0, 7)){
+
+            writer.write("mmsi,tileid,draught,pieceid,t,longitude,latitude,segmentid\n");
+
+            int counter = 0;
+
+            for(List<String> lines : reader){
+                String[] firstLine = lines.get(0).split(",");
+                String mmsi = firstLine[0], segmentID = firstLine[7], draught = firstLine[6];
+
+                double previousLon = Double.parseDouble(firstLine[3]), previousLat = Double.parseDouble(firstLine[2]);
+                int grid = magic.which(previousLon, previousLat);
+                int pieceID = 1;
+                writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(firstLine[1]), firstLine[3], firstLine[2], segmentID));
+                writer.write("\n");
+
+                String[] previousParts = firstLine;
+                for(String line : lines.subList(1, lines.size())){
+                    String[] parts = line.split(",");
+                    double lon = Double.parseDouble(parts[3]), lat = Double.parseDouble(parts[2]);
+                    int gridNOW = magic.which(lon, lat);
+                    if (gridNOW != grid){
+                        IntersectionGrids.IntersectionGridsHelper helper = magic.intersection(previousParts[1], previousLon, previousLat, parts[1], lon, lat, TwoTimestamp.formatter2);
+                        List<Double> lonS = helper.longitudes;
+                        List<Double> latS = helper.latitudes;
+                        List<Integer> grids = helper.grids;
+                        List<String> timestamps = helper.timestamps;
+
+                        for(int i = 0; i < grids.size(); i++){
+                            writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(timestamps.get(i)), lonS.get(i)+"", latS.get(i)+"", segmentID));
+                            writer.write("\n");
+                            writer.write(String.join(",", mmsi, grids.get(i)+"", draught, (++pieceID)+"", format2to1(timestamps.get(i)), lonS.get(i)+"", latS.get(i)+"", segmentID));
+                            writer.write("\n");
+
+                            grid = grids.get(i);
+                        }
+                    }
+
+                    if (gridNOW == grid){
+                        writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(parts[1]), parts[3], parts[2], segmentID));
+                        writer.write("\n");
+                    }else {
+                        writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(parts[1]), parts[3], parts[2], segmentID));
+                        writer.write("\n");
+                        writer.write(String.join(",", mmsi, gridNOW+"", draught, (++pieceID)+"", format2to1(parts[1]), parts[3], parts[2], segmentID));
+                        writer.write("\n");
+                        grid = gridNOW;
+                    }
+
+                    previousParts = parts;
+                    previousLon = lon;
+                    previousLat = lat;
+                }
+
+                counter+=lines.size();
+                System.out.println(counter);
+            }
+        }
+    }
+
+    public static String format2to1(String t) throws ParseException {
+        return TwoTimestamp.formatter1.formatExt(TwoTimestamp.formatter2.parse(t));
+    }
+
+    public static void littleChangeSpeedCourse() throws IOException {
+        Set<String> westCoast = new HashSet<>(Files.readAllLines(Paths.get(ModelInit.workdir + "littleChangeSpeedCourse20.csv")));
+
+        try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersWestCoast20.csv");
+            BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsAll20.csv", ",", true, 0, 9)) {
+            writer.write("mmsi,tileid,draught,pieceid,t,longitude,latitude,x,y,segmentid\n");
+
+            for(List<String> lines : reader){
+                boolean[] flag = new boolean[lines.size()];
+                for(int i = 0; i < lines.size(); i++){
+                    flag[i] = westCoast.contains(lines.get(i).split(",")[1]);
+                }
+
+                List<Integer> trueBegin = Array1DBoolean.firstTrueIndices(flag);
+                List<Integer> trueEnd = Array1DBoolean.lastTrueIndices(flag);
+
+                int pieceID = 1;
+                for(int i = 0; i < trueBegin.size(); i++, pieceID++){
+                    for(int ii = trueBegin.get(i); ii <= trueEnd.get(i); ii++){
+                        String[] parts = lines.get(ii).split(",");
+                        writer.write(String.join(",", parts[0], "-", parts[2], pieceID+"", parts[4], parts[5], parts[6], parts[7], parts[8], parts[9]));
+                        writer.write("\n");
+                    }
+                }
+            }
+        }
+    }
+
     public static void main(String[] args) throws IOException, ParseException {
         computeCO2Emission();
 
@@ -272,5 +430,10 @@ public class CO2emission {
 //        robustSpeedPowerRpmRatio();
 //        robustAllSave();
 
+//        cosineSimilarity();
+
+//        toPieces();
+
+//        littleChangeSpeedCourse();
     }
 }

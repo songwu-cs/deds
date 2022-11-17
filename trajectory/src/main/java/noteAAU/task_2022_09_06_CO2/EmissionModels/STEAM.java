@@ -11,12 +11,16 @@ import java.util.List;
 import java.util.Map;
 
 public class STEAM extends ModelInit{
-    Map<String, Map<String, Double>> answer;
-    WeatherWave NorthSea, BalticSea;
-    public STEAM() throws IOException, ParseException {
+    private Map<String, Map<String, Double>> answer;
+    private static WeatherWave NorthSea, BalticSea;
+    private boolean WithWeather;
+    public STEAM(boolean withWeather) throws IOException, ParseException {
         answer = CO2emission.robustAllLoad();
-        NorthSea = new WeatherWave(ModelInit.workdir + "weather-double\\MetO-NWS-WAV-hi.csv", 10, 9);
-        BalticSea = new WeatherWave(ModelInit.workdir + "weather-double\\dataset-bal-analysis-forecast-wav-hourly.csv", 4, 3);
+        WithWeather = withWeather;
+        if (NorthSea == null)
+            NorthSea = new WeatherWave(ModelInit.workdir + "weather-double\\MetO-NWS-WAV-hi.csv", 10, 9);
+        if (BalticSea == null)
+            BalticSea = new WeatherWave(ModelInit.workdir + "weather-double\\dataset-bal-analysis-forecast-wav-hourly.csv", 4, 3);
     }
 
     @Override
@@ -26,31 +30,38 @@ public class STEAM extends ModelInit{
             double maxSpeed = currentShip.get(attrMaxSpeed);
             double maxPower = currentShip.get(attrMaxPower);
             double speedSafety = 0.5;
-            String waveInfo = wave(segment);
-            String[] waveParts = waveInfo.split(",");//height, direction
 
-            double heading = segment.heading;
-            double waveDir = Double.parseDouble(waveParts[1]) + 180;
-            double angleDiff = Math.abs(heading - waveDir);
-            double theta = angleDiff > 180 ? 360 - angleDiff : angleDiff;
+            double mu = 0, delta = 0;
+            if (WithWeather){
+                String waveInfo = wave(segment);
+                String[] waveParts = waveInfo.split(",");//height, direction
 
-            double height = Double.parseDouble(waveParts[0]);
-            double BN = 4.21794 * Math.pow(height, 0.31);
+                double heading = segment.heading;
+                double waveDir = (Double.parseDouble(waveParts[1]) + 180) % 360;
+                double angleDiff = Math.abs(heading - waveDir);
+                double theta = angleDiff > 180 ? 360 - angleDiff : angleDiff;
 
-            double mu = 0;
-            if(theta <= 30)
-                mu = 1;
-            else if (theta <= 60) {
-                mu = (1.7 - 0.03 * Math.pow(BN - 4, 2)) / 2;
-            } else if (theta <= 150) {
-                mu = (0.9 - 0.03 * Math.pow(BN - 6, 2)) / 2;
-            }else
-                mu = (1.7 - 0.03 * Math.pow(BN - 8, 2)) / 2;
+                double height = Double.parseDouble(waveParts[0]);
+                double BN = 4.21794 * Math.pow(height, 0.31);
 
-            double C = 0.7;
-            double displacement = displacement(segment, currentShip);
-            double delta = (C * BN + Math.pow(BN, 6.5) / 22 / Math.pow(displacement, 2.0 / 3.0)) / 100;
-            delta = delta > 0.5 ? 0.5 : delta;
+                if(theta <= 30)
+                    mu = 1;
+                else if (theta <= 60) {
+                    mu = (1.7 - 0.03 * Math.pow(BN - 4, 2)) / 2;
+                } else if (theta <= 150) {
+                    mu = (0.9 - 0.03 * Math.pow(BN - 6, 2)) / 2;
+                }else
+                    mu = (1.7 - 0.03 * Math.pow(BN - 8, 2)) / 2;
+
+                double C = 0.7;
+                double displacement = displacement(segment, currentShip);
+                delta = (C * BN + Math.pow(BN, 6.5) / 22 / Math.pow(displacement, 2.0 / 3.0)) / 100;
+                delta = delta > 0.5 ? 0.5 : delta;
+
+                segment.significantWaveHeight = height;
+                segment.waveFromDirection = theta;
+                segment.displacement = displacement;
+            }
 
             double speedEffective = (1 + mu * delta) * segment.speed;
             double denominator = maxSpeed + speedSafety;

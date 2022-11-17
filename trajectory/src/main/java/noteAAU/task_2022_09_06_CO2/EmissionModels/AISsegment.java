@@ -13,6 +13,9 @@ public class AISsegment {
     public double speedCorrected = -1;
     public double draughtCorrected = -1;
     public double cargoTons = -1;
+    public double significantWaveHeight = -1;
+    public double waveFromDirection = -1;
+    public double displacement = -1;
 
     public AISsegment(String mmsi, double distance, double timeGap, double speed, double draught, double heading, String midT, double midLon, double midLat) {
         this.mmsi = mmsi;

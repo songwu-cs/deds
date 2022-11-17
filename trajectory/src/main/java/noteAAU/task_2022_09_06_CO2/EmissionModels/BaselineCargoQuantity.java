@@ -26,6 +26,7 @@ public class BaselineCargoQuantity extends ModelInit{
 
             segment.cargoTons = cargo_tons;
             segment.draughtCorrected = draughtCorrected;
+
             return "" + (cargo_tons * segment.distance / 1000 * SIMPLE_CONSTANT_perTonKm_GRAM / 1000);
         }
         return super.emission(segment);

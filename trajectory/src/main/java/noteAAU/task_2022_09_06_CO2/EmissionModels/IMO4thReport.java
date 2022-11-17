@@ -1,5 +1,7 @@
 package noteAAU.task_2022_09_06_CO2.EmissionModels;
 
+import calculation.Array1DNumber;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import noteAAU.task_2022_09_06_CO2.CO2emission;
 
 import java.io.IOException;
@@ -11,8 +13,38 @@ import java.util.Map;
 
 public class IMO4thReport extends ModelInit{
     Map<String, Map<String, Double>> answer = new HashMap<>();
+    Map<String, String> within5nm = new HashMap<>();
+    double[] allLongitudes;
+    double[] allLatitudes;
+
     public IMO4thReport() throws IOException {
         answer = CO2emission.robustAllLoad();
+        within5nm = loadShoreDistance();
+
+        allLatitudes = new double[160];
+        allLongitudes = new double[300];
+        for(int i = 0; i < 160; i++)
+            allLatitudes[i] = 52.025 + 0.05 * i;
+        for(int i = 0; i < 300; i++)
+            allLongitudes[i] = 5.025 + 0.05 * i;
+    }
+
+    private Map<String, String> loadShoreDistance() throws IOException {
+        List<String> lines = Files.readAllLines(Paths.get(ModelInit.workdir + "within5nm_20.csv"));
+        Map<String, String> within5nm = new HashMap<>();
+
+        for(String line : lines.subList(1, lines.size())){
+            String[] parts = line.split(",");
+            within5nm.put(parts[0], parts[1]);
+        }
+        return within5nm;
+    }
+
+    private boolean isCoastal(AISsegment segment){
+        int lonPos = Array1DNumber.closest(allLongitudes, segment.midLongitude) + 1;
+        int latPos = Array1DNumber.closest(allLatitudes, segment.midLatitude) + 1;
+        int rowid = latPos + (lonPos - 1) * 160;
+        return within5nm.get(rowid+"").equals("t");
     }
 
     @Override
@@ -25,7 +57,8 @@ public class IMO4thReport extends ModelInit{
             double draughtCorrected = Math.min(max_draught, segment.draught);
             double speedCorrected = Math.min(max_speed, segment.speed);
 
-            double delta_w = 1, eta_w = 0.867, eta_f = 0.917;
+            double delta_w = 1, eta_f = 0.917;
+            double eta_w = isCoastal(segment) ? 0.909 : 0.867;
             double power_required = delta_w * max_power * Math.pow(draughtCorrected / max_draught, 0.66) * Math.pow(speedCorrected / max_speed ,3) / eta_w / eta_f;
             power_required = Math.min(max_power, power_required);
 
@@ -96,5 +129,14 @@ public class IMO4thReport extends ModelInit{
             return 3.206;
         }
         return -1;
+    }
+
+    public static void main(String[] args) {
+        int lonPos = Array1DNumber.closest(new double[]{50.25,50.75}, 50.6) + 1;
+        int latPos = Array1DNumber.closest(new double[]{50.25,50.75,51.25,51.75}, 51.2) + 1;
+        int rowid = latPos + (lonPos - 1) * 4;
+        System.out.println(rowid);
+
+
     }
 }
