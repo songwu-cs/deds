@@ -75,6 +75,31 @@ public class IMO4thReport extends ModelInit{
         return super.emission(segment);
     }
 
+    public String emission(AISsegment segment, WeatherCurrent currentData) {//in kilograms
+        Map<String, Double> currentShip = answer.get(segment.mmsi);
+        if(currentShip != null){
+            double max_power = currentShip.get(attrMaxPower);
+            double max_speed = currentShip.get(attrMaxSpeed);
+            double max_draught = currentShip.get(attrDRAUGHT);
+            double draughtCorrected = Math.min(max_draught, segment.draught);
+            double speedCorrected = Math.min(max_speed, currentData.calibratedSpeed(segment));
+
+            double delta_w = 1, eta_f = 0.917;
+            double eta_w = isCoastal(segment) ? 0.909 : 0.867;
+            double power_required = delta_w * max_power * Math.pow(draughtCorrected / max_draught, 0.66) * Math.pow(speedCorrected / max_speed ,3) / eta_w / eta_f;
+            power_required = Math.min(max_power, power_required);
+
+            //using MDO rather than HFO
+            double SFCbase = calcSFOC(currentShip.get(attrRPM), currentShip.get(attrYear), FUEL); //可以根据建造年份进行细分, in g/kWh
+            double load = power_required / max_power;
+            double SFCme = SFCbase * (0.455 * load * load - 0.710 * load + 1.280);
+            double CO2_emission_factor = calcEF_CO2(FUEL); //in gCO2/gFUEL
+
+            return "" + (power_required * segment.timeGap / 3600 * SFCme * CO2_emission_factor / 1000);
+        }
+        return super.emission(segment);
+    }
+
     private double calcSFOC(double rpm, double year, String fuelType){
         String engineType = rpmLEVEL(rpm);
 

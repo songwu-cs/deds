@@ -33,6 +33,21 @@ public class SpeedCubic extends ModelInit{
         return super.emission(segment);
     }
 
+    public String emission(AISsegment segment, WeatherCurrent currentData) { // in kilograms
+        Map<String, Double> currentShip = answer.get(segment.mmsi);
+        if(currentShip != null) {
+            double emissionFactor = calcEF_CO2(currentShip.get(attrRPM), FUEL); //in g/kWh
+
+            double maxSpeed = currentShip.get(attrMaxSpeed);
+            double maxPower = currentShip.get(attrMaxPower);
+
+            double speedCorrected = Math.min(maxSpeed, currentData.calibratedSpeed(segment));
+
+            return "" + (maxPower * Math.pow(speedCorrected / maxSpeed, 3) * segment.timeGap / 3600 * emissionFactor / 1000);
+        }
+        return super.emission(segment);
+    }
+
     private double calcEF_CO2(double rpm, String fuelType){// no option for HSD and HFO
         String engineType = rpmLEVEL(rpm);
         if (engineType.equals(SSD) && fuelType.equals(DIESEL)) {

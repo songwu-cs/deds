@@ -3,6 +3,7 @@ package noteAAU.task_2022_09_06_CO2;
 import angle.Angle;
 import calculation.Array1DBoolean;
 import calculation.Array1DString;
+import calculation.UnitString;
 import com.sun.org.apache.xpath.internal.operations.Mod;
 import datetime.OneTimestamp;
 import datetime.TwoTimestamp;
@@ -11,6 +12,8 @@ import io.bigdata.BatchFileReader;
 import noteAAU.task_2022_09_06_CO2.EmissionModels.*;
 import org.omg.CORBA.MARSHAL;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
@@ -22,8 +25,8 @@ import java.util.*;
 public class CO2emission {
 
     public static void computeCO2Emission() throws IOException, ParseException {
-        try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersWestCoastEmissions20.csv");
-            BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersWestCoast20.csv", ",", true, 0,9,3)){
+        try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsEmissions20.csv");
+            BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsAll20.csv", ",", true, 0,9,3)){
             writer.write("mmsi,segmentid,tileid,pieceid,heading,fromT,toT,draught,fromLon,fromLat,toLon,toLat,distance_m,time_s,speed_knots,co2_01_kg,co2_02_kg,co2_03_kg,co2_04_kg,co2_05_kg,co2_06_kg,draughtOver,speedOver,cargo_tons,waveAngle,waveHeight,displacement\n");
 
             BaselineCargoQuantity baselineCargoQuantity = new BaselineCargoQuantity();
@@ -44,6 +47,12 @@ public class CO2emission {
                 double draught = Double.parseDouble(parts[2]);
 
                 if(! answer.containsKey(mmsi))
+                    continue;
+
+                double TPC = answer.get(mmsi).get(ModelInit.attrTPC);
+                double maxDraught = answer.get(mmsi).get(ModelInit.attrDRAUGHT);
+                double dwt = answer.get(mmsi).get(ModelInit.attrDWT);
+                if (dwt - (maxDraught - draught) * 100 * TPC < 0)
                     continue;
 
                 for(int i = 0; i < ls.size() - 1; i++){
@@ -91,6 +100,154 @@ public class CO2emission {
                     writer.write("\n");
                 }
             }
+        }
+    }
+
+    public static void computeCO2EmissionCurrent() throws IOException, ParseException {
+        try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsEmissions20Current.csv");
+            BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsAll20.csv", ",", true, 0,9,3)){
+            writer.write("mmsi,segmentid,tileid,pieceid,heading,fromT,toT,draught,fromLon,fromLat,toLon,toLat,distance_m,time_s,speed_knots,co2_03current_kg,co2_04current_kg,co2_05current_kg,co2_06current_kg\n");
+
+            WeatherCurrent currentData = new WeatherCurrent(ModelInit.workdir + "weather/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i.csv", 3, 4);
+            IMO4thReport imo4thReport = new IMO4thReport();
+            STEAM steam = new STEAM(false);
+            STEAM steamWithWave = new STEAM(true);
+            SpeedCubic speedCubic = new SpeedCubic();
+
+            Map<String, Map<String, Double>> answer = CO2emission.robustAllLoad();
+
+            for(List<String> ls : reader){
+                String[] parts = ls.get(0).split(",");
+                String mmsi = parts[0];
+                String segmentid = parts[9];
+                String tileid = parts[1];
+                String pieceid = parts[3];
+                double draught = Double.parseDouble(parts[2]);
+
+                if(! answer.containsKey(mmsi))
+                    continue;
+
+                double TPC = answer.get(mmsi).get(ModelInit.attrTPC);
+                double maxDraught = answer.get(mmsi).get(ModelInit.attrDRAUGHT);
+                double dwt = answer.get(mmsi).get(ModelInit.attrDWT);
+                if (dwt - (maxDraught - draught) * 100 * TPC < 0)
+                    continue;
+
+                for(int i = 0; i < ls.size() - 1; i++){
+                    String[] partsFrom = ls.get(i).split(",");
+                    String[] partsTo = ls.get(i+1).split(",");
+                    double fromLon = Double.parseDouble(partsFrom[7]), fromLat = Double.parseDouble(partsFrom[8]);
+                    double toLon = Double.parseDouble(partsTo[7]), toLat = Double.parseDouble(partsTo[8]);
+                    double distance = Math.hypot(toLon - fromLon, toLat - fromLat);
+                    double timeGap = TwoTimestamp.diffInSeconds(partsTo[4], partsFrom[4], TwoTimestamp.formatter1);
+                    String midTimestamp = OneTimestamp.add(partsFrom[4], 0, 0, (int)(timeGap / 2), OneTimestamp.formatter1);
+                    double speed = distance / timeGap * 3600 / 1000 / 1.852;
+
+                    double heading = Angle.heading(fromLon, fromLat, toLon, toLat);
+
+                    AISsegment segment = new AISsegment(mmsi, distance, timeGap, speed, draught, heading, midTimestamp, (fromLon+toLon)/2, (fromLat+toLat)/2);
+
+                    writer.write(String.join(",",
+                            mmsi,
+                            segmentid,
+                            tileid,
+                            pieceid,
+                            heading+"",
+                            partsFrom[4],
+                            partsTo[4],
+                            draught+"",
+                            partsFrom[5],
+                            partsFrom[6],
+                            partsTo[5],
+                            partsTo[6],
+                            distance+"",
+                            timeGap+"",
+                            speed+"",
+                            speedCubic.emission(segment, currentData),
+                            imo4thReport.emission(segment, currentData),
+                            steam.emission(segment, currentData),
+                            steamWithWave.emission(segment, currentData)));
+                    writer.write("\n");
+                }
+            }
+        }
+    }
+
+    public static void mergeBaseCurrent() throws IOException {
+        try (BufferedReader noCurrent = new BufferedReader(new FileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsEmissions20.csv"));
+             BufferedReader withCurrent = new BufferedReader(new FileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsEmissions20Current.csv"));
+             PrintWriter writer = new PrintWriter(ModelInit.workdir + "aa.csv")){
+
+            writer.write("mmsi,segmentid,tileid,pieceid,heading,fromT,toT,draught,fromLon,fromLat,toLon,toLat,distance_m,time_s,speed_knots,co2_01_kg,co2_02_kg,co2_03_kg,co2_04_kg,co2_05_kg,co2_06_kg,draughtOver,speedOver,cargo_tons,waveAngle,waveHeight,displacement,co2_03current_kg,co2_04current_kg,co2_05current_kg,co2_06current_kg\n");
+            String line1 = noCurrent.readLine();
+            String line2 = withCurrent.readLine();
+            while ((line1 = noCurrent.readLine()) != null){
+                line2 = withCurrent.readLine();
+                writer.write(line1);
+                writer.write(",");
+                writer.write(UnitString.subset(line2, ",", 15,16,17,18));
+                writer.write("\n");
+            }
+        }
+    }
+
+    public static void computeCO2EmissionAllWave() throws IOException, ParseException {
+        try(BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsAll20.csv", ",", true, 0,9,3)){
+            STEAM steam = new STEAM(false);
+
+            double[][] emissions = new double[4][];
+            emissions[0] = new double[11];
+            emissions[1] = new double[11];
+            emissions[2] = new double[11];
+            emissions[3] = new double[11];
+            Arrays.fill(emissions[0], 0);
+            Arrays.fill(emissions[1], 0);
+            Arrays.fill(emissions[2], 0);
+            Arrays.fill(emissions[3], 0);
+
+            Map<String, Map<String, Double>> answer = CO2emission.robustAllLoad();
+
+            for(List<String> ls : reader){
+                String[] parts = ls.get(0).split(",");
+                String mmsi = parts[0];
+                double draught = Double.parseDouble(parts[2]);
+
+                if(! answer.containsKey(mmsi))
+                    continue;
+
+                double TPC = answer.get(mmsi).get(ModelInit.attrTPC);
+                double maxDraught = answer.get(mmsi).get(ModelInit.attrDRAUGHT);
+                double dwt = answer.get(mmsi).get(ModelInit.attrDWT);
+                if (dwt - (maxDraught - draught) * 100 * TPC < 0)
+                    continue;
+
+                for(int i = 0; i < ls.size() - 1; i++){
+                    String[] partsFrom = ls.get(i).split(",");
+                    String[] partsTo = ls.get(i+1).split(",");
+                    double fromLon = Double.parseDouble(partsFrom[7]), fromLat = Double.parseDouble(partsFrom[8]);
+                    double toLon = Double.parseDouble(partsTo[7]), toLat = Double.parseDouble(partsTo[8]);
+                    double distance = Math.hypot(toLon - fromLon, toLat - fromLat);
+                    double timeGap = TwoTimestamp.diffInSeconds(partsTo[4], partsFrom[4], TwoTimestamp.formatter1);
+                    String midTimestamp = OneTimestamp.add(partsFrom[4], 0, 0, (int)(timeGap / 2), OneTimestamp.formatter1);
+                    double speed = distance / timeGap * 3600 / 1000 / 1.852;
+
+                    double heading = Angle.heading(fromLon, fromLat, toLon, toLat);
+
+                    AISsegment segment = new AISsegment(mmsi, distance, timeGap, speed, draught, heading, midTimestamp, (fromLon+toLon)/2, (fromLat+toLat)/2);
+
+                    for(int range = 0; range <= 3; range++){
+                        for(int height = 0; height <= 10; height++){
+                            emissions[range][height] += Double.parseDouble(steam.emission(segment, range, height));
+                        }
+                    }
+                }
+            }
+
+            System.out.println(Arrays.toString(emissions[0]));
+            System.out.println(Arrays.toString(emissions[1]));
+            System.out.println(Arrays.toString(emissions[2]));
+            System.out.println(Arrays.toString(emissions[3]));
+
         }
     }
 
@@ -332,7 +489,7 @@ public class CO2emission {
         try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsAll20.csv");
             BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliers.csv", ",", true, 0, 7)){
 
-            writer.write("mmsi,tileid,draught,pieceid,t,longitude,latitude,segmentid\n");
+            writer.write("mmsi,tileid,draught,pieceid,t,longitude,latitude,x,y,segmentid\n");
 
             int counter = 0;
 
@@ -343,7 +500,7 @@ public class CO2emission {
                 double previousLon = Double.parseDouble(firstLine[3]), previousLat = Double.parseDouble(firstLine[2]);
                 int grid = magic.which(previousLon, previousLat);
                 int pieceID = 1;
-                writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(firstLine[1]), firstLine[3], firstLine[2], segmentID));
+                writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(firstLine[1]), firstLine[3], firstLine[2], firstLine[8], firstLine[9], segmentID));
                 writer.write("\n");
 
                 String[] previousParts = firstLine;
@@ -352,16 +509,21 @@ public class CO2emission {
                     double lon = Double.parseDouble(parts[3]), lat = Double.parseDouble(parts[2]);
                     int gridNOW = magic.which(lon, lat);
                     if (gridNOW != grid){
-                        IntersectionGrids.IntersectionGridsHelper helper = magic.intersection(previousParts[1], previousLon, previousLat, parts[1], lon, lat, TwoTimestamp.formatter2);
+                        double previousX = Double.parseDouble(previousParts[8]), previousY = Double.parseDouble(previousParts[9]);
+                        double nowX = Double.parseDouble(parts[8]), nowY = Double.parseDouble(parts[9]);
+
+                        IntersectionGrids.IntersectionGridsHelperXY helper = magic.intersectionXY(previousParts[1], previousLon, previousLat, previousX, previousY, parts[1], lon, lat, nowX, nowY, TwoTimestamp.formatter2);
                         List<Double> lonS = helper.longitudes;
                         List<Double> latS = helper.latitudes;
                         List<Integer> grids = helper.grids;
                         List<String> timestamps = helper.timestamps;
+                        List<Double> Xs = helper.X;
+                        List<Double> Ys = helper.Y;
 
                         for(int i = 0; i < grids.size(); i++){
-                            writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(timestamps.get(i)), lonS.get(i)+"", latS.get(i)+"", segmentID));
+                            writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(timestamps.get(i)), lonS.get(i)+"", latS.get(i)+"", Xs.get(i)+"", Ys.get(i)+"", segmentID));
                             writer.write("\n");
-                            writer.write(String.join(",", mmsi, grids.get(i)+"", draught, (++pieceID)+"", format2to1(timestamps.get(i)), lonS.get(i)+"", latS.get(i)+"", segmentID));
+                            writer.write(String.join(",", mmsi, grids.get(i)+"", draught, (++pieceID)+"", format2to1(timestamps.get(i)), lonS.get(i)+"", latS.get(i)+"", Xs.get(i)+"", Ys.get(i)+"", segmentID));
                             writer.write("\n");
 
                             grid = grids.get(i);
@@ -369,12 +531,12 @@ public class CO2emission {
                     }
 
                     if (gridNOW == grid){
-                        writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(parts[1]), parts[3], parts[2], segmentID));
+                        writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(parts[1]), parts[3], parts[2], parts[8], parts[9], segmentID));
                         writer.write("\n");
                     }else {
-                        writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(parts[1]), parts[3], parts[2], segmentID));
+                        writer.write(String.join(",", mmsi, grid+"", draught, pieceID+"", format2to1(parts[1]), parts[3], parts[2], parts[8], parts[9], segmentID));
                         writer.write("\n");
-                        writer.write(String.join(",", mmsi, gridNOW+"", draught, (++pieceID)+"", format2to1(parts[1]), parts[3], parts[2], segmentID));
+                        writer.write(String.join(",", mmsi, gridNOW+"", draught, (++pieceID)+"", format2to1(parts[1]), parts[3], parts[2], parts[8], parts[9], segmentID));
                         writer.write("\n");
                         grid = gridNOW;
                     }
@@ -394,17 +556,43 @@ public class CO2emission {
         return TwoTimestamp.formatter1.formatExt(TwoTimestamp.formatter2.parse(t));
     }
 
+    public static void filterMRV() throws IOException {
+        List<String> lines = Files.readAllLines(Paths.get(ModelInit.workdir + "EIVvalues_02_unique_MMSI_IMO.csv"));
+        Map<String, Double> mmsi2eiv = new HashMap<>();
+        for(String line : lines.subList(1, lines.size())){
+            String[] parts = line.split(",");
+            mmsi2eiv.put(parts[1], (parts[2].equals("EIV") ? 3.206/3.114 : 1) * Double.parseDouble(parts[3]));
+        }
+
+        try(BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsEmissions20.csv", ",", true, 0);
+            PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsEmissions20MRV2.csv")){
+            writer.write("mmsi,segmentid,tileid,pieceid,heading,fromT,toT,draught,fromLon,fromLat,toLon,toLat,distance_m,time_s,speed_knots,co2_01_kg,co2_02_kg,co2_03_kg,co2_04_kg,co2_05_kg,co2_06_kg,draughtOver,speedOver,cargo_tons,waveAngle,waveHeight,displacement,co2_03current_kg,co2_04current_kg,co2_05current_kg,co2_06current_kg,co2_MRV_kg\n");
+
+            for(List<String> mmsiLines : reader){
+                String mmsi = mmsiLines.get(0).substring(0,9);
+                if(mmsi2eiv.containsKey(mmsi)){
+                    for(String line : mmsiLines){
+                        String[] parts = line.split(",");
+                        double eivEmissions = Double.parseDouble(parts[15]) / 3 / 1.852 * mmsi2eiv.get(mmsi);
+                        writer.write(line);
+                        writer.write("," + eivEmissions + "\n");
+                    }
+                }
+            }
+        }
+    }
+
     public static void littleChangeSpeedCourse() throws IOException {
         Set<String> westCoast = new HashSet<>(Files.readAllLines(Paths.get(ModelInit.workdir + "littleChangeSpeedCourse20.csv")));
 
-        try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersWestCoast20.csv");
-            BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsAll20.csv", ",", true, 0, 9)) {
-            writer.write("mmsi,tileid,draught,pieceid,t,longitude,latitude,x,y,segmentid\n");
+        try(PrintWriter writer = new PrintWriter(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersWestCoastEmissions20.csv");
+            BatchFileReader reader = new BatchFileReader(ModelInit.workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsEmissions20.csv", ",", true, 0, 1)) {
+            writer.write("mmsi,segmentid,tileid,pieceid,heading,fromT,toT,draught,fromLon,fromLat,toLon,toLat,distance_m,time_s,speed_knots,co2_01_kg,co2_02_kg,co2_03_kg,co2_04_kg,co2_05_kg,co2_06_kg,draughtOver,speedOver,cargo_tons,waveAngle,waveHeight,displacement\n");
 
             for(List<String> lines : reader){
                 boolean[] flag = new boolean[lines.size()];
                 for(int i = 0; i < lines.size(); i++){
-                    flag[i] = westCoast.contains(lines.get(i).split(",")[1]);
+                    flag[i] = westCoast.contains(lines.get(i).split(",")[2]);
                 }
 
                 List<Integer> trueBegin = Array1DBoolean.firstTrueIndices(flag);
@@ -414,7 +602,9 @@ public class CO2emission {
                 for(int i = 0; i < trueBegin.size(); i++, pieceID++){
                     for(int ii = trueBegin.get(i); ii <= trueEnd.get(i); ii++){
                         String[] parts = lines.get(ii).split(",");
-                        writer.write(String.join(",", parts[0], "-", parts[2], pieceID+"", parts[4], parts[5], parts[6], parts[7], parts[8], parts[9]));
+                        parts[2] = "-";
+                        parts[3] = pieceID+"";
+                        writer.write(String.join(",", parts));
                         writer.write("\n");
                     }
                 }
@@ -423,7 +613,10 @@ public class CO2emission {
     }
 
     public static void main(String[] args) throws IOException, ParseException {
-        computeCO2Emission();
+//        computeCO2Emission();
+//        computeCO2EmissionCurrent();
+//        computeCO2EmissionAllWave();
+//        mergeBaseCurrent();
 
 //        EEDIprocessing();
 
@@ -435,5 +628,7 @@ public class CO2emission {
 //        toPieces();
 
 //        littleChangeSpeedCourse();
+
+        filterMRV();
     }
 }

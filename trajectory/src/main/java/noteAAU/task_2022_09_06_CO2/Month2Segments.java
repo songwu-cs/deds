@@ -44,7 +44,7 @@ public class Month2Segments {
                     }
                 }
 
-                if(aoi.size() == 0)
+                if(aoi.size() < 2)
                     continue;
                 //时间分割
                 String previousTimestamp = aoi.get(0)[timeINDEX];
@@ -128,7 +128,7 @@ public class Month2Segments {
     public static void step2() throws IOException{
         try(BatchFileReader batchFileReader = new BatchFileReader(workdir+"aisdk_onemonth_sorted_cargoAllColumnsSegments.csv", ",", true, 0,7);
             PrintWriter writer = new PrintWriter(workdir+"aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliers.csv")) {
-            writer.write("mmsi,timestamp,latitude,longitude,sog,navigationStatus,draughtCorrected,segmentID\n");
+            writer.write("mmsi,timestamp,latitude,longitude,sog,navigationStatus,draughtCorrected,segmentID,x,y\n");
             //假定异常点不会出现在开头
             for (List<String> lines : batchFileReader){
                 List<String> goodLines = new ArrayList<>();
@@ -137,10 +137,9 @@ public class Month2Segments {
                 for(String line : lines.subList(1, lines.size())){
                     String[] parts2 = line.split(",");
                     double timeGap = TwoTimestamp.diffInSeconds(parts2[1], parts[1], TwoTimestamp.formatter2);
-                    double degreeMaxGap = timeGap / 3600 * 50 * 1852 / 111000;
-                    double diffLon = Math.abs(Double.parseDouble(parts2[3]) - Double.parseDouble(parts[3]));
-                    double diffLat = Math.abs(Double.parseDouble(parts2[2]) - Double.parseDouble(parts[2]));
-                    if (diffLon >= degreeMaxGap || diffLat >= degreeMaxGap)
+                    double diffX = Math.abs(Double.parseDouble(parts2[8]) - Double.parseDouble(parts[8]));
+                    double diffY = Math.abs(Double.parseDouble(parts2[9]) - Double.parseDouble(parts[9]));
+                    if (Math.hypot(diffX, diffY) / timeGap * 3.6 / 1.852 >= 50)
                         continue;
                     else {
                         goodLines.add(line);
@@ -158,41 +157,41 @@ public class Month2Segments {
         }
     }
 
-    //为时间戳找到segmentID
-    public static void step3() throws IOException{
-        try(BatchFileReader reader = new BatchFileReader(workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliers.csv", ",", true, 0,7);
-            BatchFileReader reader1 = new BatchFileReader(workdir + "aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliersToCellsAll.csv", ",", true, 0);
-            PrintWriter writer = new PrintWriter(workdir + "new.csv")){
-            writer.write("mmsi,tileid,draught,pieceid,t,longitude,latitude,x,y,segmentID\n");
+    //处理由于去掉异常点造成的time gap大于1小时的情况
+    public static void step2Extra() throws Exception{
+        try(BatchFileReader batchFileReader = new BatchFileReader(workdir+"aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliers.csv", ",", true, 0);
+            PrintWriter writer = new PrintWriter(workdir+"aisdk_onemonth_sorted_cargoAllColumnsSegmentsNoOutliers2.csv")) {
+            writer.write("mmsi,timestamp,latitude,longitude,sog,navigationStatus,draughtCorrected,segmentID,x,y\n");
 
-            HashMap<String, HashMap<String,String>> startrT = new HashMap<>();
-            HashMap<String, HashMap<String,String>> endT = new HashMap<>();
-            for(List<String> segment : reader){
-                String[] partsStart = segment.get(0).split(",");
-                String[] partsEnd = segment.get(segment.size()-1).split(",");
-                if(! startrT.containsKey(partsStart[0])){
-                    startrT.put(partsStart[0], new HashMap<>());
-                    endT.put(partsEnd[0], new HashMap<>());
-                }
-                startrT.get(partsStart[0]).put(partsStart[7], partsStart[1]);
-                endT.get(partsEnd[0]).put(partsEnd[7], partsEnd[1]);
-            }
+            for (List<String> mmsi : batchFileReader){
+                List<List<String>> segments = ListGeneric.groupString(mmsi, e -> e.split(",")[7]);
+                List<List<String>> realSegments = new ArrayList<>();
+                for(List<String> segment : segments){
+                    List<String> head = new ArrayList<>();
+                    String previousT = segment.get(0).split(",")[1];
+                    head.add(segment.get(0));
+                    realSegments.add(head);
 
-            for(List<String> ls : reader1){
-                for(String s : ls){
-                    String[] parts = s.split(",");
-                    String mmsi = parts[0];
-                    String t = parts[4];
-                    t = t.substring(8,10) + "/" + t.substring(5,7) + "/" + t.substring(0,4) + " " + t.substring(11);
-                    HashMap<String, String> mapStart = startrT.get(mmsi);
-                    HashMap<String, String> mapEnd = endT.get(mmsi);
-                    for(String id : mapStart.keySet()){
-                        if(t.compareTo(mapStart.get(id)) >= 0 && t.compareTo(mapEnd.get(id)) <= 0){
-                            writer.write(s);
-                            writer.write("," + id + "\n");
-                            break;
+                    for(String s : segment.subList(1, segment.size())){
+                        String nowT = s.split(",")[1];
+                        if (TwoTimestamp.diffInSeconds(nowT, previousT, TwoTimestamp.formatter2) >= 3600){
+                            realSegments.add(new ArrayList<>());
                         }
+                        realSegments.get(realSegments.size()-1).add(s);
+                        previousT = nowT;
                     }
+                }
+
+                int segmentID = 1;
+                for(List<String> segment : realSegments){
+                    for(String line : segment){
+                        String[] parts = line.split(",");
+                        parts[7] = String.format("%03d", segmentID);
+                        writer.write(String.join(",", parts));
+                        writer.write("\n");
+                    }
+
+                    segmentID++;
                 }
             }
         }
@@ -222,15 +221,18 @@ public class Month2Segments {
     }
 
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
 //        step1();
 //        System.out.println("q,b,,c".split(",")[2].equals(""));
 
 //        step2();
+        step2Extra();
 
 //        step3();
 
 //        step4();
+
+//        System.out.println(TwoTimestamp.diffInSeconds("27/05/2022 07:37:49", "27/05/2022 05:30:23", TwoTimestamp.formatter2));
 
     }
 }
